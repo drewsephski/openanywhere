@@ -31,7 +31,7 @@ die() {
   error "$1"
   echo ""
   echo -e "  ${YELLOW}If this persists, please open an issue:${NC}"
-  echo -e "  https://github.com/your-org/openanywhere/issues"
+  echo -e "  https://github.com/drewsephski/openanywhere/issues"
   exit 1
 }
 
@@ -206,7 +206,7 @@ install_companion() {
   else
     # Fallback: download daemon from GitHub releases
     info "Downloading companion daemon..."
-    local RELEASE_URL="https://github.com/your-org/openanywhere/releases/latest/download/daemon.js"
+    local RELEASE_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/daemon.js"
     if ! curl -fsSL "$RELEASE_URL" -o "$INSTALL_DIR/index.js"; then
       warn "Could not download daemon. Skipping companion install."
       return 1
