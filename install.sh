@@ -246,6 +246,11 @@ install_companion() {
     chmod +x "$INSTALL_DIR/openanywhere"
   fi
 
+  # Remove macOS quarantine attribute (Gatekeeper blocks unsigned binaries)
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    xattr -d com.apple.quarantine "$INSTALL_DIR/openanywhere" 2>/dev/null || true
+  fi
+
   # Create launcher script (thin wrapper for PATH convenience)
   cat > "$INSTALL_DIR/openanywhere.sh" << 'LAUNCHER_EOF'
 #!/usr/bin/env bash
