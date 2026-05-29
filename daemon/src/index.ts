@@ -196,16 +196,86 @@ function cmdUninstallBoot(): void {
 
 // ─── Banner ─────────────────────────────────────────────────────────────────
 
-function printBanner(url: string, password: string): void {
+type HealthStatus = "ok" | "warn" | "fail";
+
+interface HealthResults {
+  opencode: HealthStatus;
+  tailscale: HealthStatus;
+  proxy: HealthStatus;
+  url: string;
+}
+
+function checkmark(status: HealthStatus): string {
+  switch (status) {
+    case "ok": return "✓";
+    case "warn": return "⚠";
+    case "fail": return "✗";
+  }
+}
+
+async function runHealthCheck(
+  config: Config,
+  proxyPort: number,
+  tsIP: string,
+  token: string
+): Promise<HealthResults> {
+  const results: HealthResults = {
+    opencode: "fail",
+    tailscale: "fail",
+    proxy: "fail",
+    url: `http://${tsIP}:${proxyPort}/?t=${token}`,
+  };
+
+  // Check OpenCode
+  try {
+    const resp = await fetch(`http://127.0.0.1:${config.port}/`, {
+      headers: { Authorization: `Basic ${Buffer.from(`opencode:${config.password}`).toString("base64")}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    results.opencode = resp.ok ? "ok" : "fail";
+  } catch {
+    results.opencode = "fail";
+  }
+
+  // Check Tailscale
+  results.tailscale = tsIP && tsIP !== "localhost" ? "ok" : "warn";
+
+  // Check proxy
+  try {
+    const resp = await fetch(`http://127.0.0.1:${proxyPort}/health`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    results.proxy = resp.ok ? "ok" : "fail";
+  } catch {
+    results.proxy = "fail";
+  }
+
+  return results;
+}
+
+function printBanner(health: HealthResults, password: string): void {
+  const allOk = health.opencode === "ok" && health.tailscale === "ok" && health.proxy === "ok";
+
   console.log("");
   console.log("  ╔══════════════════════════════════════════╗");
-  console.log("  ║      OpenCode Remote — Ready!            ║");
+  console.log("  ║      OpenCode Remote — " + (allOk ? "Ready!            ║" : "⚠ Issues Found    ║"));
   console.log("  ╚══════════════════════════════════════════╝");
   console.log("");
-  console.log(`  📱  Open on your phone:`);
-  console.log(`      ${url}`);
+  console.log(`  ${checkmark(health.opencode)} OpenCode  ${health.opencode === "ok" ? "running" : "not responding"}`);
+  console.log(`  ${checkmark(health.tailscale)} Tailscale ${health.tailscale === "ok" ? "connected" : health.tailscale === "warn" ? "no IP — is Tailscale running?" : "disconnected"}`);
+  console.log(`  ${checkmark(health.proxy)} Proxy     ${health.proxy === "ok" ? "accessible" : "not reachable"}`);
   console.log("");
-  console.log(`  🔑  Password:  ${password}`);
+  if (allOk) {
+    console.log(`  📱  Open on your phone:`);
+    console.log(`      ${health.url}`);
+    console.log("");
+    console.log(`  🔑  Password:  ${password}`);
+  } else {
+    console.log(`  Troubleshooting:`);
+    if (health.opencode !== "ok") console.log(`    • OpenCode failed — try: opencode serve --port 0`);
+    if (health.tailscale !== "ok") console.log(`    • Tailscale not connected — try: tailscale up`);
+    if (health.proxy !== "ok") console.log(`    • Proxy not reachable — try restarting the daemon`);
+  }
   console.log("");
   console.log("  ───────────────────────────────────────────");
   console.log("");
@@ -214,6 +284,13 @@ function printBanner(url: string, password: string): void {
 // ─── QR Code ────────────────────────────────────────────────────────────────
 
 async function printQR(url: string): Promise<void> {
+  // QR codes need ~60 columns minimum to scan reliably
+  const columns = process.stdout.columns || 80;
+  if (columns < 60) {
+    console.log("  [QR code skipped — terminal too narrow]");
+    console.log(`  [Use this URL on your phone: ${url}]`);
+    return;
+  }
   try {
     const qrcode = await import("qrcode-terminal");
     qrcode.default.generate(url, { small: true }, (q: string) => {
@@ -223,7 +300,7 @@ async function printQR(url: string): Promise<void> {
     console.log(
       "  [QR code unavailable — install qrcode-terminal for QR display]"
     );
-    console.log("  [Use the URL above to access on your phone]");
+    console.log(`  [Use the URL above on your phone: ${url}]`);
   }
 }
 
@@ -521,40 +598,501 @@ const AUTH_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenCode Remote</title>
 <style>
-  * { box-sizing:border-box; margin:0; padding:0 }
-  body { font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#1a1a2e; color:#eee; display:flex; align-items:center; justify-content:center; min-height:100vh }
-  .card { background:#16213e; border-radius:16px; padding:32px 24px; max-width:360px; width:100%; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.3) }
-  h1 { font-size:20px; margin-bottom:8px }
-  p { color:#a0a0b8; font-size:14px; margin-bottom:20px }
-  input { width:100%; padding:12px; border-radius:10px; border:1px solid #2a2a4a; background:#0f0f23; color:#fff; font-size:16px; text-align:center; margin-bottom:12px }
-  input:focus { outline:none; border-color:#6c63ff }
-  button { width:100%; padding:12px; border-radius:10px; border:none; background:#6c63ff; color:#fff; font-size:16px; font-weight:600; cursor:pointer }
-  button:active { background:#5a52d5 }
-  .error { color:#ff6b6b; font-size:13px; margin-top:8px; display:none }
-  .hint { font-size:12px; color:#666; margin-top:16px }
+  @property --border-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  :root {
+    --bg-deep: #050510;
+    --card-bg: rgba(12, 15, 32, 0.72);
+    --accent-1: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-3: #a855f7;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8c8ca8;
+    --text-muted: #5c5c78;
+    --input-bg: rgba(8, 10, 22, 0.85);
+    --input-border: rgba(99, 102, 241, 0.2);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+
+  body {
+    font-family: "SF Pro Display", -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(155deg, #050510 0%, #090c1c 25%, #0d1028 50%, #070a18 75%, #050510 100%);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── dot grid overlay ── */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── ambient orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+  .orb-1 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.22), transparent 70%);
+    top: -15%; left: -12%;
+    animation: orb-drift-1 22s ease-in-out infinite alternate;
+  }
+  .orb-2 {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.18), transparent 70%);
+    bottom: -18%; right: -8%;
+    animation: orb-drift-2 26s ease-in-out infinite alternate;
+  }
+  .orb-3 {
+    width: 280px; height: 280px;
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.14), transparent 70%);
+    top: 55%; left: 60%;
+    animation: orb-drift-3 19s ease-in-out infinite alternate;
+  }
+
+  @keyframes orb-drift-1 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(60px, 40px) scale(1.1); }
+  }
+  @keyframes orb-drift-2 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-50px, -30px) scale(1.15); }
+  }
+  @keyframes orb-drift-3 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-35px, -45px) scale(1.08); }
+  }
+
+  /* ── animated gradient border wrapper ── */
+  .card-border {
+    --border-angle: 0deg;
+    position: relative;
+    z-index: 1;
+    max-width: 400px;
+    width: calc(100% - 40px);
+    border-radius: 22px;
+    padding: 2px;
+    background: conic-gradient(
+      from var(--border-angle),
+      transparent 0deg,
+      transparent 280deg,
+      var(--accent-1) 300deg,
+      var(--accent-2) 315deg,
+      var(--accent-3) 330deg,
+      var(--accent-1) 345deg,
+      transparent 360deg
+    );
+    animation: border-sweep 4s linear infinite;
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  @keyframes border-sweep {
+    to { --border-angle: 360deg; }
+  }
+
+  /* ── glass card ── */
+  .card {
+    position: relative;
+    background: var(--card-bg);
+    backdrop-filter: blur(24px) saturate(120%);
+    -webkit-backdrop-filter: blur(24px) saturate(120%);
+    border-radius: 20px;
+    padding: 40px 32px 32px;
+    text-align: center;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  /* inner glow at top of card */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.1) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* subtle pulsing card shadow */
+  .card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 20px;
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .card > * { position: relative; z-index: 1 }
+
+  /* ── lock icon ── */
+  .lock-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: var(--accent-2);
+    animation: lock-pulse 3s ease-in-out infinite;
+  }
+  .lock-icon svg { display: block }
+
+  @keyframes lock-pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(99, 102, 241, 0.15); }
+    50%      { box-shadow: 0 0 24px rgba(99, 102, 241, 0.3); }
+  }
+
+  /* ── typography ── */
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  /* ── form ── */
+  form { position: relative; z-index: 1 }
+
+  .input-group {
+    position: relative;
+    margin-bottom: 14px;
+  }
+
+  .input-group input {
+    width: 100%;
+    padding: 14px 44px 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 15px;
+    font-family: inherit;
+    text-align: left;
+    letter-spacing: 1px;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .input-group input::placeholder {
+    color: rgba(232, 232, 240, 0.25);
+    letter-spacing: 0;
+  }
+  .input-group input:focus {
+    border-color: var(--accent-1);
+    background: rgba(10, 13, 28, 0.95);
+    box-shadow:
+      0 0 0 3px rgba(99, 102, 241, 0.12),
+      0 0 30px rgba(99, 102, 241, 0.08),
+      inset 0 0 20px rgba(99, 102, 241, 0.04);
+  }
+
+  /* ── password visibility toggle ── */
+  .toggle-pw {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(232, 232, 240, 0.3);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+    outline: none;
+    width: auto;
+    border-radius: 8px;
+  }
+  .toggle-pw:hover { color: rgba(232, 232, 240, 0.7) }
+  .toggle-pw:focus-visible {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+  }
+
+  /* ── submit button ── */
+  #submit-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #8b5cf6 100%);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+    letter-spacing: 0.2px;
+  }
+  #submit-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45);
+  }
+  #submit-btn:hover::before { opacity: 1 }
+  #submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.25);
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+  }
+  #submit-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+  }
+  #submit-btn.loading .btn-text { opacity: 0 }
+  #submit-btn.loading .btn-spinner { display: block }
+
+  .btn-text {
+    transition: opacity 0.2s ease;
+  }
+
+  .btn-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    animation: btn-spin 0.65s linear infinite;
+  }
+
+  @keyframes btn-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── error message ── */
+  .error {
+    color: #f87171;
+    font-size: 13px;
+    margin-top: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    animation: error-in 0.35s ease;
+  }
+  .error.shake {
+    animation: error-shake 0.45s ease, error-in 0.35s ease;
+  }
+
+  @keyframes error-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes error-shake {
+    0%, 100% { transform: translateX(0); }
+    15%  { transform: translateX(-6px); }
+    30%  { transform: translateX(6px); }
+    45%  { transform: translateX(-5px); }
+    60%  { transform: translateX(5px); }
+    75%  { transform: translateX(-3px); }
+    90%  { transform: translateX(3px); }
+  }
+
+  /* ── secure badge ── */
+  .secure-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(139, 92, 246, 0.6);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .secure-badge svg { opacity: 0.7; flex-shrink: 0 }
+
+  /* ── hint text ── */
+  .hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  /* ── responsive ── */
+  @media (max-width: 440px) {
+    .card { padding: 28px 20px 24px }
+    h1 { font-size: 20px }
+    .lock-icon { width: 48px; height: 48px; border-radius: 14px }
+  }
 </style>
 </head>
 <body>
-<div class="card">
-  <h1>🔐 OpenCode Remote</h1>
-  <p>Enter the password shown in your terminal</p>
-  <form onsubmit="return submitPassword(event)">
-    <input type="password" id="pw" placeholder="Password" autofocus>
-    <button type="submit">Connect</button>
-    <div class="error" id="err">Invalid password</div>
-  </form>
-  <p class="hint">Or scan the QR code again for instant access</p>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="card-border">
+  <div class="card">
+    <div class="lock-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2.5" ry="2.5"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        <circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+
+    <h1>OpenCode Remote</h1>
+    <p class="subtitle">Enter the password shown in your terminal</p>
+
+    <form onsubmit="return submitPassword(event)" autocomplete="off">
+      <div class="input-group">
+        <input type="password" id="pw" placeholder="Password" autofocus autocomplete="off" spellcheck="false">
+        <button type="button" class="toggle-pw" onclick="togglePassword()" aria-label="Show password" tabindex="-1">
+          <svg id="eye-on" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg id="eye-off" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+            <line x1="9.88" y1="9.88" x2="14.12" y2="14.12"/>
+          </svg>
+        </button>
+      </div>
+
+      <button type="submit" id="submit-btn">
+        <span class="btn-text">Connect</span>
+        <span class="btn-spinner"></span>
+      </button>
+
+      <div class="error" id="err">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span>Invalid password</span>
+      </div>
+    </form>
+
+    <div class="secure-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Secure Connection
+    </div>
+
+    <p class="hint">Or scan the QR code again for instant access</p>
+  </div>
 </div>
+
 <script>
+var dismissTimer = null;
+
+function togglePassword() {
+  var pw = document.getElementById("pw");
+  var on = document.getElementById("eye-on");
+  var off = document.getElementById("eye-off");
+  if (pw.type === "password") {
+    pw.type = "text";
+    on.style.display = "none";
+    off.style.display = "block";
+  } else {
+    pw.type = "password";
+    on.style.display = "block";
+    off.style.display = "none";
+  }
+  pw.focus();
+}
+
 async function submitPassword(e) {
   e.preventDefault();
-  const pw = document.getElementById('pw').value;
-  const resp = await fetch('/?t=' + encodeURIComponent(pw), { redirect:'manual' });
-  if (resp.status === 302) {
-    window.location.href = resp.headers.get('Location') || '/';
-  } else {
-    document.getElementById('err').style.display = 'block';
+  var btn = document.getElementById("submit-btn");
+  var err = document.getElementById("err");
+  var pw = document.getElementById("pw");
+
+  if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+  err.style.display = "none";
+  err.classList.remove("shake");
+
+  btn.disabled = true;
+  btn.classList.add("loading");
+
+  try {
+    var resp = await fetch("/?t=" + encodeURIComponent(pw.value), { redirect: "manual" });
+    if (resp.status === 302) {
+      window.location.href = resp.headers.get("Location") || "/";
+    } else {
+      showError();
+    }
+  } catch (_) {
+    showError();
   }
+}
+
+function showError() {
+  var btn = document.getElementById("submit-btn");
+  var err = document.getElementById("err");
+  btn.disabled = false;
+  btn.classList.remove("loading");
+  err.style.display = "flex";
+  err.classList.add("shake");
+  dismissTimer = setTimeout(function() {
+    err.style.display = "none";
+    err.classList.remove("shake");
+    dismissTimer = null;
+  }, 3500);
 }
 </script>
 </body>
@@ -696,13 +1234,16 @@ async function doStart(): Promise<void> {
   // Wait briefly for proxy to start
   await new Promise((r) => setTimeout(r, 1000));
 
-  // Display info using the proxy URL
+  // Run health self-check before displaying banner
   const tsIP = getTailscaleIP() || "localhost";
   const token = loadToken();
-  const displayUrl = `http://${tsIP}:${proxyPort}/?t=${token}`;
+  const health = await runHealthCheck(resolvedConfig, proxyPort!, tsIP, token);
 
-  printBanner(displayUrl, password);
-  await printQR(displayUrl);
+  // Display info
+  printBanner(health, password);
+  if (health.opencode === "ok") {
+    await printQR(health.url);
+  }
 
   // Crash recovery with loop protection
   child.on("exit", async (code, signal) => {

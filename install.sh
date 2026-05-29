@@ -10,8 +10,26 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m' # No Color
+
+TROUBLESHOOTING_URL="https://github.com/drewsephski/openanywhere#troubleshooting"
+
+spinner() {
+  local pid=$1
+  local message=$2
+  local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+  local i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf "\r  ${CYAN}%s${NC} %s" "${chars:$i:1}" "$message"
+    i=$(( (i + 1) % ${#chars} ))
+    sleep 0.1
+  done
+  wait "$pid" 2>/dev/null
+  printf "\r%-60s\r" " "  # Clear the line
+}
 
 banner() {
   echo ""
@@ -30,8 +48,7 @@ error()   { echo -e "  ${RED}✗${NC} $1"; }
 die() {
   error "$1"
   echo ""
-  echo -e "  ${YELLOW}If this persists, please open an issue:${NC}"
-  echo -e "  https://github.com/drewsephski/openanywhere/issues"
+  echo -e "  ${DIM}Troubleshooting: ${TROUBLESHOOTING_URL}${NC}"
   exit 1
 }
 
@@ -59,9 +76,9 @@ ensure_homebrew() {
     success "Homebrew: found ($(brew --version | head -1))"
     return 0
   fi
-  info "Installing Homebrew..."
+  info "Installing Homebrew (needed for Tailscale)..."
   if ! /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-    die "Failed to install Homebrew."
+    die "Failed to install Homebrew. Install manually: https://brew.sh"
   fi
   # Add to PATH for this session
   if [[ -f /opt/homebrew/bin/brew ]]; then
@@ -77,9 +94,9 @@ ensure_bun() {
     success "Bun: found ($(bun --version))"
     return 0
   fi
-  info "Installing Bun..."
+  info "Installing Bun (required by OpenCode)..."
   if ! curl -fsSL https://bun.sh/install | bash; then
-    die "Failed to install Bun."
+    die "Failed to install Bun. Install manually: https://bun.sh"
   fi
   # Add to PATH for this session
   export PATH="$HOME/.bun/bin:$PATH"
@@ -156,20 +173,31 @@ ensure_tailscale_auth() {
   echo -e "  ${YELLOW}A browser window will open. Log in to Tailscale to continue.${NC}"
   echo ""
 
-  if ! tailscale up --accept-routes 2>&1; then
-    die "Tailscale authentication failed."
-  fi
+  # Start tailscale up in background
+  tailscale up --accept-routes > /dev/null 2>&1 &
+  local TS_PID=$!
 
-  # Wait for auth to complete
+  # Wait for auth with spinner
   local waited=0
-  while [[ $waited -lt 60 ]]; do
+  while [[ $waited -lt 120 ]]; do
+    if ! kill -0 "$TS_PID" 2>/dev/null; then
+      # tailscale up finished — check result
+      wait "$TS_PID" 2>/dev/null
+      local exit_code=$?
+      if [[ $exit_code -ne 0 ]]; then
+        die "Tailscale authentication failed (exit code $exit_code). Try running 'tailscale up' manually."
+      fi
+      break
+    fi
+    spinner "$TS_PID" "Waiting for Tailscale login... ($waited s)" &
+    sleep 2
+    waited=$((waited + 2))
+    # Check if already authenticated
     status=$(tailscale status --json 2>/dev/null || echo '{}')
     backend=$(echo "$status" | python3 -c "import sys,json; print(json.load(sys.stdin).get('BackendState','Unknown'))" 2>/dev/null || echo "Unknown")
     if [[ "$backend" == "Running" ]]; then
       break
     fi
-    sleep 2
-    waited=$((waited + 2))
   done
 
   if [[ "$backend" != "Running" ]]; then
