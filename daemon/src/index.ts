@@ -283,24 +283,28 @@ function printBanner(health: HealthResults, password: string): void {
   console.log("");
 
   if (width >= 60) {
-    // Full instructions with QR
-    console.log("  ─── To open on your phone ───");
+    console.log("  ─── Before scanning the QR code ───");
     console.log("");
-    console.log("    1. Open your phone's camera");
-    console.log("    2. Point it at the QR code below");
-    console.log("    3. Tap the link that appears");
+    console.log("    1. Install Tailscale on your phone (free):");
+    console.log("       App Store → Tailscale → install → log in");
+    console.log("       (Use the SAME account you used on this Mac)");
+    console.log("");
+    console.log("    2. Then scan the QR code below with your");
+    console.log("       phone's camera and tap the link.");
     console.log("");
     console.log("  That's it. OpenCode opens on your phone.");
-    console.log("  (You can also Add to Home Screen for an app-like experience)");
+    console.log("  (Tap Share → Add to Home Screen for an app)");
     console.log("");
   } else {
-    // Narrow terminal — no QR, just URL
     console.log("  ─── To open on your phone ───");
     console.log("");
-    console.log("    Type this URL in your phone's browser:");
-    console.log(`    ${health.url}`);
+    console.log("    1. Install Tailscale on your phone (App Store →");
+    console.log("       Tailscale → install → log in with SAME account)");
     console.log("");
-    console.log("    Password (if asked): ${password}");
+    console.log("    2. Type this URL in your phone's browser:");
+    console.log(`       ${health.url}`);
+    console.log("");
+    console.log(`    Password (if asked): ${password}`);
     console.log("");
     return;
   }
