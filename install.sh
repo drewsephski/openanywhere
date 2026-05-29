@@ -218,8 +218,11 @@ install_companion() {
   local INSTALL_DIR="$HOME/.openanywhere"
   mkdir -p "$INSTALL_DIR"
 
-  # If running from a local build, copy the binary
-  local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # Determine script directory (handles piped curl|bash where BASH_SOURCE is unset)
+  local SCRIPT_DIR="/tmp"
+  if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  fi
   if [[ -f "$SCRIPT_DIR/openanywhere" ]] && file "$SCRIPT_DIR/openanywhere" 2>/dev/null | grep -q "executable"; then
     info "Using local binary..."
     cp "$SCRIPT_DIR/openanywhere" "$INSTALL_DIR/openanywhere"
@@ -229,21 +232,42 @@ install_companion() {
     cp "$SCRIPT_DIR/../openanywhere" "$INSTALL_DIR/openanywhere"
     chmod +x "$INSTALL_DIR/openanywhere"
   else
-    # Download binary from GitHub Releases
-    info "Downloading companion binary..."
+    # Try downloading pre-built binary from GitHub Releases
+    info "Downloading companion..."
     local ARCH
     ARCH=$(uname -m)
-    local OS
-    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-    local BINARY_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/openanywhere-${OS}-${ARCH}"
-    if ! curl -fsSL --progress-bar "$BINARY_URL" -o "$INSTALL_DIR/openanywhere"; then
-      warn "Could not download binary. Trying fallback URL..."
-      local FALLBACK_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/openanywhere"
-      if ! curl -fsSL --progress-bar "$FALLBACK_URL" -o "$INSTALL_DIR/openanywhere"; then
-        die "Failed to download companion binary. Check your internet connection."
-      fi
+    local OS_NAME
+    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local BINARY_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/openanywhere-${OS_NAME}-${ARCH}"
+    local DOWNLOAD_OK=false
+
+    if curl -fsSL --connect-timeout 10 "$BINARY_URL" -o "$INSTALL_DIR/openanywhere" 2>/dev/null; then
+      chmod +x "$INSTALL_DIR/openanywhere"
+      DOWNLOAD_OK=true
+      success "Companion: binary downloaded"
     fi
-    chmod +x "$INSTALL_DIR/openanywhere"
+
+    # Fallback: build from source using Bun (no pre-built binary available yet)
+    if [[ "$DOWNLOAD_OK" != "true" ]]; then
+      warn "No pre-built binary available. Building from source..."
+      if ! command -v bun &> /dev/null; then
+        ensure_bun
+      fi
+      # Download the daemon source from GitHub
+      local SRC_URL="https://raw.githubusercontent.com/drewsephski/openanywhere/main/daemon/src/index.ts"
+      curl -fsSL "$SRC_URL" -o "$INSTALL_DIR/index.ts" || die "Failed to download daemon source."
+      # Install qrcode-terminal dependency
+      cd "$INSTALL_DIR"
+      echo '{"dependencies":{"qrcode-terminal":"^0.12.0"}}' > "$INSTALL_DIR/package.json"
+      bun install --silent 2>/dev/null || true
+      # Create launcher that runs via Bun
+      cat > "$INSTALL_DIR/openanywhere" << 'BUNFALLBACK'
+#!/usr/bin/env bash
+exec bun run "$HOME/.openanywhere/index.ts" "$@"
+BUNFALLBACK
+      chmod +x "$INSTALL_DIR/openanywhere"
+      success "Companion: built from source"
+    fi
   fi
 
   # Remove macOS quarantine attribute (Gatekeeper blocks unsigned binaries)
