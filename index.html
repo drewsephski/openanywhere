@@ -5,28 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OpenCode Remote — OpenCode from anywhere</title>
 <meta name="description" content="One-command installer for OpenCode + Tailscale remote access. Your AI coding workspace on your phone in ~2 minutes.">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Work+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
-/* ───────────────────────────────────────────
-   CSS Custom Properties
-   ─────────────────────────────────────────── */
+/*
+ *  ─── CUSTOM PROPERTIES ───────────────────────────
+ */
 :root {
   /* Depth layers */
-  --bg-deep: #04040a;
-  --bg-base: #080810;
-  --surface: rgba(14, 14, 24, 0.65);
-  --surface-hover: rgba(20, 20, 36, 0.75);
-  --surface-card: rgba(16, 16, 28, 0.55);
+  --bg-deep: #020208;
+  --bg-base: #060610;
+  --bg-elevated: #0a0a18;
+  --surface: rgba(12, 12, 24, 0.72);
+  --surface-hover: rgba(18, 18, 34, 0.82);
+  --surface-card: rgba(14, 14, 26, 0.60);
 
   /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-card: rgba(255, 255, 255, 0.07);
-  --border-glow: rgba(139, 92, 246, 0.22);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-card: rgba(255, 255, 255, 0.06);
+  --border-active: rgba(255, 255, 255, 0.10);
+  --border-glow: rgba(139, 92, 246, 0.20);
 
   /* Accent gradient stops */
   --accent-1: #6366f1;
   --accent-2: #8b5cf6;
   --accent-3: #a855f7;
   --accent-4: #c084fc;
+  --accent-warm: #f59e0b;
 
   /* Text */
   --text-primary: #f1f5f9;
@@ -38,30 +46,36 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Fonts */
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Work Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
 }
 
-/* ───────────────────────────────────────────
-   @property — Animated gradient border angle
-   ─────────────────────────────────────────── */
+/*  ─── @property — animated gradient border ─────── */
 @property --border-angle {
   syntax: '<angle>';
   initial-value: 0deg;
   inherits: false;
 }
 
-/* ───────────────────────────────────────────
-   Reset & Base
-   ─────────────────────────────────────────── */
+/*
+ *  ─── RESET & BASE ────────────────────────────────
+ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 html {
   background: var(--bg-deep);
   color: var(--text-primary);
   scroll-behavior: smooth;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-body);
+  font-weight: 400;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -71,42 +85,86 @@ body {
   overflow-x: hidden;
 }
 
-/* ───────────────────────────────────────────
-   Typography
-   ─────────────────────────────────────────── */
-h1 {
-  font-size: clamp(38px, 6vw, 64px);
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+/*  ─── SELECTION ─────────────────────────────────── */
+::selection {
+  background: rgba(139, 92, 246, 0.30);
+  color: #f8fafc;
+}
+::-moz-selection {
+  background: rgba(139, 92, 246, 0.30);
   color: #f8fafc;
 }
 
+/*  ─── SCROLLBAR ─────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.18);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.30);
+}
+
+/*
+ *  ─── TYPOGRAPHY ──────────────────────────────────
+ */
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6.5vw, 72px);
+  font-weight: 800;
+  font-variation-settings: 'opsz' 72;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  color: #f8fafc;
+  text-wrap: balance;
+}
+h1 .accent {
+  background: linear-gradient(135deg, var(--accent-2) 0%, var(--accent-3) 50%, var(--accent-4) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: 'opsz' 24;
+}
+
 h3 {
+  font-family: var(--font-display);
   font-size: 18px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  font-variation-settings: 'opsz' 24;
+  letter-spacing: -0.015em;
   color: var(--text-primary);
 }
 
 h4 {
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 600;
+  font-variation-settings: 'opsz' 18;
   letter-spacing: -0.005em;
   color: var(--text-primary);
   margin-bottom: 6px;
 }
 
-p { color: var(--text-muted); }
+p {
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
 a {
   color: var(--accent-4);
   text-decoration: none;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 a:hover {
   color: #e2e8f0;
-  text-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+  text-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
 }
 
 /* ───────────────────────────────────────────

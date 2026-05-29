@@ -261,21 +261,55 @@ function printBanner(health: HealthResults, password: string): void {
   console.log("  ║      OpenCode Remote — " + (allOk ? "Ready!            ║" : "⚠ Issues Found    ║"));
   console.log("  ╚══════════════════════════════════════════╝");
   console.log("");
-  console.log(`  ${checkmark(health.opencode)} OpenCode  ${health.opencode === "ok" ? "running" : "not responding"}`);
-  console.log(`  ${checkmark(health.tailscale)} Tailscale ${health.tailscale === "ok" ? "connected" : health.tailscale === "warn" ? "no IP — is Tailscale running?" : "disconnected"}`);
-  console.log(`  ${checkmark(health.proxy)} Proxy     ${health.proxy === "ok" ? "accessible" : "not reachable"}`);
-  console.log("");
-  if (allOk) {
-    console.log(`  📱  Open on your phone:`);
-    console.log(`      ${health.url}`);
+
+  if (!allOk) {
+    console.log(`  ${checkmark(health.opencode)} OpenCode  ${health.opencode === "ok" ? "running" : "not responding"}`);
+    console.log(`  ${checkmark(health.tailscale)} Tailscale ${health.tailscale === "ok" ? "connected" : health.tailscale === "warn" ? "no IP — is Tailscale running?" : "disconnected"}`);
+    console.log(`  ${checkmark(health.proxy)} Proxy     ${health.proxy === "ok" ? "accessible" : "not reachable"}`);
     console.log("");
-    console.log(`  🔑  Password:  ${password}`);
-  } else {
-    console.log(`  Troubleshooting:`);
-    if (health.opencode !== "ok") console.log(`    • OpenCode failed — try: opencode serve --port 0`);
-    if (health.tailscale !== "ok") console.log(`    • Tailscale not connected — try: tailscale up`);
-    if (health.proxy !== "ok") console.log(`    • Proxy not reachable — try restarting the daemon`);
+    console.log("  Troubleshooting:");
+    if (health.opencode !== "ok") console.log("    • OpenCode failed — try: opencode serve --port 0");
+    if (health.tailscale !== "ok") console.log("    • Tailscale not connected — try: tailscale up");
+    if (health.proxy !== "ok") console.log("    • Proxy not reachable — try restarting the daemon");
+    console.log("");
+    return;
   }
+
+  // ─── Phone instructions ────────────────────────────────────────────────
+  const width = process.stdout.columns || 80;
+
+  console.log("  Your AI coding workspace is now accessible");
+  console.log("  from any device on your Tailscale network.");
+  console.log("");
+
+  if (width >= 60) {
+    // Full instructions with QR
+    console.log("  ─── To open on your phone ───");
+    console.log("");
+    console.log("    1. Open your phone's camera");
+    console.log("    2. Point it at the QR code below");
+    console.log("    3. Tap the link that appears");
+    console.log("");
+    console.log("  That's it. OpenCode opens on your phone.");
+    console.log("  (You can also Add to Home Screen for an app-like experience)");
+    console.log("");
+  } else {
+    // Narrow terminal — no QR, just URL
+    console.log("  ─── To open on your phone ───");
+    console.log("");
+    console.log("    Type this URL in your phone's browser:");
+    console.log(`    ${health.url}`);
+    console.log("");
+    console.log("    Password (if asked): ${password}");
+    console.log("");
+    return;
+  }
+
+  // URL + password are shown AFTER the QR as fallback
+  console.log("  ─── Or type this URL on your phone ───");
+  console.log(`  ${health.url}`);
+  console.log("");
+  console.log(`  Password (if asked): ${password}`);
   console.log("");
   console.log("  ───────────────────────────────────────────");
   console.log("");
