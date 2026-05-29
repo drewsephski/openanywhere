@@ -18,14 +18,23 @@ const DATA_DIR = path.join(
 const PID_FILE = path.join(DATA_DIR, "daemon.pid");
 const LOG_FILE = path.join(DATA_DIR, "daemon.log");
 const PASSWORD_FILE = path.join(DATA_DIR, "password");
+const TOKEN_FILE = path.join(DATA_DIR, "token");
+const PORT_FILE = path.join(DATA_DIR, "proxy-port");
+const PLIST_PATH = path.join(
+  process.env.HOME || "/tmp",
+  "Library/LaunchAgents/com.vaultzero.openanywhere.plist"
+);
+
+// Crash loop protection
+const MAX_CRASHES = 5;
+const CRASH_WINDOW_MS = 60_000;
+const crashTimestamps: number[] = [];
 
 interface Config {
   port: number;
   password: string;
   hostname: string;
 }
-
-const TOKEN_FILE = path.join(DATA_DIR, "token");
 
 function generateToken(length = 20): string {
   return randomBytes(length).toString("base64url").slice(0, length);
@@ -101,6 +110,87 @@ function isRunning(): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── LaunchAgent (macOS boot persistence) ────────────────────────────────────
+
+function getOwnPath(): string {
+  // Find the openanywhere launcher script
+  const paths = [
+    path.join(process.env.HOME || "/tmp", ".openanywhere/openanywhere"),
+    path.join(process.env.HOME || "/tmp", ".openanywhere/index.js"),
+  ];
+  for (const p of paths) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Fallback: assume the daemon script is running via bun
+  return process.argv[1] || "openanywhere";
+}
+
+function generatePlist(): string {
+  const execPath = getOwnPath();
+  const logPath = path.join(DATA_DIR, "launchd.log");
+  const errLogPath = path.join(DATA_DIR, "launchd.err.log");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vaultzero.openanywhere</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${execPath}</string>
+        <string>start</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${logPath}</string>
+    <key>StandardErrorPath</key>
+    <string>${errLogPath}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:${process.env.HOME}/.bun/bin:${process.env.HOME}/.opencode/bin</string>
+        <key>HOME</key>
+        <string>${process.env.HOME}</string>
+    </dict>
+</dict>
+</plist>`;
+}
+
+function cmdInstallBoot(): void {
+  if (process.platform !== "darwin") {
+    console.log("LaunchAgent is only supported on macOS.");
+    console.log("Linux: create a systemd user unit instead.");
+    process.exit(1);
+  }
+  const dir = path.dirname(PLIST_PATH);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(PLIST_PATH, generatePlist(), { mode: 0o644 });
+  try {
+    execSync(`launchctl load "${PLIST_PATH}"`, { encoding: "utf-8" });
+    console.log("LaunchAgent installed. Daemon will start on boot.");
+    console.log(`Plist: ${PLIST_PATH}`);
+  } catch (err: any) {
+    console.error("Failed to load LaunchAgent:", err.message);
+    console.log(`Plist written to ${PLIST_PATH} but not loaded.`);
+    console.log(`Run manually: launchctl load "${PLIST_PATH}"`);
+  }
+}
+
+function cmdUninstallBoot(): void {
+  if (fs.existsSync(PLIST_PATH)) {
+    try {
+      execSync(`launchctl unload "${PLIST_PATH}"`, { encoding: "utf-8" });
+    } catch { /* already unloaded */ }
+    fs.unlinkSync(PLIST_PATH);
+    console.log("LaunchAgent removed.");
+  } else {
+    console.log("No LaunchAgent installed.");
   }
 }
 
@@ -357,6 +447,7 @@ function startProxy(
   server.listen(0, "0.0.0.0", () => {
     const addr = server.address() as AddressInfo;
     proxyPort = addr.port;
+    fs.writeFileSync(PORT_FILE, String(addr.port));
     log(`Proxy: http://0.0.0.0:${addr.port}`);
   });
 }
@@ -473,9 +564,10 @@ async function submitPassword(e) {
 
 async function cmdStatus(): Promise<void> {
   if (isRunning()) {
-    if (proxyPort) {
+    const port = proxyPort || getSavedPort();
+    if (port) {
       try {
-        const res = await fetch(`http://127.0.0.1:${proxyPort}/health`);
+        const res = await fetch(`http://127.0.0.1:${port}/health`);
         const status = await res.json();
         console.log(JSON.stringify(status, null, 2));
         return;
@@ -486,6 +578,15 @@ async function cmdStatus(): Promise<void> {
     console.log("Daemon: running");
   } else {
     console.log("Daemon: stopped");
+  }
+}
+
+function getSavedPort(): number | null {
+  try {
+    const p = parseInt(fs.readFileSync(PORT_FILE, "utf-8").trim(), 10);
+    return isNaN(p) ? null : p;
+  } catch {
+    return null;
   }
 }
 
@@ -512,12 +613,13 @@ function cmdStop(): void {
 function cmdUrl(): void {
   const token = loadToken();
   const tsIP = getTailscaleIP() || "localhost";
+  const port = proxyPort || getSavedPort();
   // Try to get proxy port from health endpoint
-  if (proxyPort) {
-    fetch(`http://127.0.0.1:${proxyPort}/health`)
+  if (port) {
+    fetch(`http://127.0.0.1:${port}/health`)
       .then((r) => r.json())
       .then((s) => console.log(`http://${tsIP}:${s.proxy_port}/?t=${token}`))
-      .catch(() => console.log(`http://${tsIP}:${proxyPort}/?t=${token}`));
+      .catch(() => console.log(`http://${tsIP}:${port}/?t=${token}`));
   } else {
     console.log(`http://${tsIP}:0/?t=${token}`);
   }
@@ -544,8 +646,14 @@ async function main(): Promise<void> {
     case "password":
       console.log(loadPassword());
       break;
+    case "install-boot":
+      cmdInstallBoot();
+      break;
+    case "uninstall-boot":
+      cmdUninstallBoot();
+      break;
     default:
-      console.log("Usage: openanywhere [start|stop|status|url|password]");
+      console.log("Usage: openanywhere [start|stop|status|url|password|install-boot|uninstall-boot]");
       process.exit(1);
   }
 }
@@ -596,23 +704,68 @@ async function doStart(): Promise<void> {
   printBanner(displayUrl, password);
   await printQR(displayUrl);
 
-  // Crash recovery: restart OpenCode if it dies
+  // Crash recovery with loop protection
   child.on("exit", async (code, signal) => {
-    log(`OpenCode crashed (code=${code}). Restarting in 3s...`);
-    await new Promise((r) => setTimeout(r, 3000));
+    const now = Date.now();
+    crashTimestamps.push(now);
+    // Purge timestamps older than the window
+    while (crashTimestamps.length > 0 && crashTimestamps[0] < now - CRASH_WINDOW_MS) {
+      crashTimestamps.shift();
+    }
+
+    if (crashTimestamps.length > MAX_CRASHES) {
+      log(`OpenCode crashed ${crashTimestamps.length} times in ${CRASH_WINDOW_MS / 1000}s. Giving up.`);
+      log("Run 'openanywhere start' to try again.");
+      try { fs.unlinkSync(PID_FILE); } catch {}
+      process.exit(1);
+    }
+
+    const delay = Math.min(crashTimestamps.length * 3000, 15000);
+    log(`OpenCode crashed (code=${code}). Restarting in ${delay / 1000}s (attempt ${crashTimestamps.length})...`);
+    await new Promise((r) => setTimeout(r, delay));
     const { process: newChild, url: newUrl, actualPort: newPort } = await startAndWait(config);
     savePID(newChild.pid || 0);
-    // Note: token stays the same, proxy stays running
     log(`Restarted OpenCode on port ${newPort}.`);
   });
+
+  // Network monitoring: detect Tailscale IP changes
+  let lastTSIP = tsIP;
+  const netCheckInterval = setInterval(() => {
+    const currentIP = getTailscaleIP();
+    if (currentIP && currentIP !== lastTSIP) {
+      lastTSIP = currentIP;
+      log(`Tailscale IP changed: ${currentIP}. Regenerate QR with 'openanywhere url'.`);
+    }
+  }, 60_000);
+
+  // OpenCode update detection: restart if binary changed
+  let ocBinaryPath = "";
+  try { ocBinaryPath = execSync("which opencode", { encoding: "utf-8" }).trim(); } catch {}
+  let ocBinaryMtime = 0;
+  if (ocBinaryPath) {
+    try { ocBinaryMtime = fs.statSync(ocBinaryPath).mtimeMs; } catch {}
+  }
+  const updateCheckInterval = setInterval(() => {
+    if (!ocBinaryPath) return;
+    try {
+      const newMtime = fs.statSync(ocBinaryPath).mtimeMs;
+      if (newMtime > ocBinaryMtime) {
+        ocBinaryMtime = newMtime;
+        log("OpenCode binary updated. Restarting server...");
+        child.kill("SIGTERM");
+        // The exit handler above will restart it
+      }
+    } catch {}
+  }, 300_000); // Check every 5 minutes
 
   // Graceful shutdown
   const cleanup = () => {
     log("Shutting down daemon...");
+    clearInterval(netCheckInterval);
+    clearInterval(updateCheckInterval);
     child.kill("SIGTERM");
-    try {
-      fs.unlinkSync(PID_FILE);
-    } catch {}
+    try { fs.unlinkSync(PID_FILE); } catch {}
+    try { fs.unlinkSync(PORT_FILE); } catch {}
     process.exit(0);
   };
 
