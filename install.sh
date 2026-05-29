@@ -97,10 +97,10 @@ ensure_opencode() {
     return 0
   fi
   info "Installing OpenCode..."
+  # OpenCode's installer needs Bun — install it temporarily
   if ! command -v bun &> /dev/null; then
-    die "Bun is required to install OpenCode."
+    ensure_bun
   fi
-  # OpenCode can be installed via its own install script or bun
   if ! curl -fsSL https://opencode.ai/install.sh | bash; then
     die "Failed to install OpenCode."
   fi
@@ -186,45 +186,47 @@ ensure_tailscale_auth() {
 install_companion() {
   info "Installing OpenCode Remote companion..."
 
-  # Create data directory
-  local DATA_DIR="$HOME/.local/share/openanywhere"
-  mkdir -p "$DATA_DIR"
-
+  mkdir -p "$HOME/.local/share/openanywhere"
   local INSTALL_DIR="$HOME/.openanywhere"
   mkdir -p "$INSTALL_DIR"
 
-  # If we're running from the repo, copy the built daemon
+  # If running from a local build, copy the binary
   local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -f "$SCRIPT_DIR/daemon/dist/index.js" ]]; then
-    info "Using pre-built daemon from $SCRIPT_DIR"
-    cp "$SCRIPT_DIR/daemon/dist/index.js" "$INSTALL_DIR/index.js"
-    cp "$SCRIPT_DIR/daemon/package.json" "$INSTALL_DIR/package.json" 2>/dev/null || true
-  elif [[ -f "$SCRIPT_DIR/../daemon/dist/index.js" ]]; then
-    info "Using pre-built daemon from repo"
-    cp "$SCRIPT_DIR/../daemon/dist/index.js" "$INSTALL_DIR/index.js"
-    cp "$SCRIPT_DIR/../daemon/package.json" "$INSTALL_DIR/package.json" 2>/dev/null || true
+  if [[ -f "$SCRIPT_DIR/openanywhere" ]] && file "$SCRIPT_DIR/openanywhere" 2>/dev/null | grep -q "executable"; then
+    info "Using local binary..."
+    cp "$SCRIPT_DIR/openanywhere" "$INSTALL_DIR/openanywhere"
+    chmod +x "$INSTALL_DIR/openanywhere"
+  elif [[ -f "$SCRIPT_DIR/../openanywhere" ]] && file "$SCRIPT_DIR/../openanywhere" 2>/dev/null | grep -q "executable"; then
+    info "Using local binary..."
+    cp "$SCRIPT_DIR/../openanywhere" "$INSTALL_DIR/openanywhere"
+    chmod +x "$INSTALL_DIR/openanywhere"
   else
-    # Fallback: download daemon from GitHub releases
-    info "Downloading companion daemon..."
-    local RELEASE_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/daemon.js"
-    if ! curl -fsSL "$RELEASE_URL" -o "$INSTALL_DIR/index.js"; then
-      warn "Could not download daemon. Skipping companion install."
-      return 1
+    # Download binary from GitHub Releases
+    info "Downloading companion binary..."
+    local ARCH
+    ARCH=$(uname -m)
+    local OS
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local BINARY_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/openanywhere-${OS}-${ARCH}"
+    if ! curl -fsSL --progress-bar "$BINARY_URL" -o "$INSTALL_DIR/openanywhere"; then
+      warn "Could not download binary. Trying fallback URL..."
+      local FALLBACK_URL="https://github.com/drewsephski/openanywhere/releases/latest/download/openanywhere"
+      if ! curl -fsSL --progress-bar "$FALLBACK_URL" -o "$INSTALL_DIR/openanywhere"; then
+        die "Failed to download companion binary. Check your internet connection."
+      fi
     fi
+    chmod +x "$INSTALL_DIR/openanywhere"
   fi
 
-  # Install qrcode-terminal for QR code generation
-  cd "$INSTALL_DIR"
-  bun install --silent qrcode-terminal 2>/dev/null || true
-
-  # Create launcher script
-  cat > "$INSTALL_DIR/openanywhere" << 'LAUNCHER_EOF'
+  # Create launcher script (thin wrapper for PATH convenience)
+  cat > "$INSTALL_DIR/openanywhere.sh" << 'LAUNCHER_EOF'
 #!/usr/bin/env bash
-export OC_PORT="${OC_PORT:-0}"
-export OC_HOSTNAME="${OC_HOSTNAME:-0.0.0.0}"
-exec bun run "$HOME/.openanywhere/index.js" "$@"
+exec "$HOME/.openanywhere/openanywhere" "$@"
 LAUNCHER_EOF
-  chmod +x "$INSTALL_DIR/openanywhere"
+  chmod +x "$INSTALL_DIR/openanywhere.sh"
+
+  # Add to PATH (link the binary name for convenience)
+  ln -sf "$INSTALL_DIR/openanywhere" "$INSTALL_DIR/openanywhere-bin" 2>/dev/null || true
 
   # Add to PATH
   local SHELL_RC=""
@@ -255,9 +257,8 @@ main() {
   echo -e "  ${BOLD}Installing dependencies...${NC}"
   echo ""
   ensure_homebrew
-  ensure_bun
-  ensure_opencode
   ensure_tailscale
+  ensure_opencode
 
   echo ""
   echo -e "  ${BOLD}Setting up remote access...${NC}"
@@ -274,6 +275,10 @@ main() {
   echo ""
   echo -e "  This will start OpenCode and display a QR code."
   echo -e "  Scan it with your phone to access OpenCode from anywhere."
+  echo ""
+  echo -e "  ${BOLD}To auto-start on boot:${NC}"
+  echo ""
+  echo -e "    ${BLUE}openanywhere install-boot${NC}"
   echo ""
 
   # Ask if user wants to start now
