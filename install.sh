@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── OpenCode Remote Installer ───────────────────────────────────────────────
+# ─── openanywhere Installer ───────────────────────────────────────────────
 # One-command setup: curl openanywhere.dev/install.sh | bash
 # Gets you from zero → OpenCode on your phone in ~2 minutes.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ spinner() {
 banner() {
   echo ""
   echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║       ${BOLD}OpenCode Remote Installer${NC}${BLUE}          ║${NC}"
+  echo -e "${BLUE}║       ${BOLD}openanywhere Installer${NC}${BLUE}          ║${NC}"
   echo -e "${BLUE}║     OpenCode from anywhere, in minutes   ║${NC}"
   echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
   echo ""
@@ -212,7 +212,7 @@ ensure_tailscale_auth() {
 # ─── Install companion daemon ────────────────────────────────────────────────
 
 install_companion() {
-  info "Installing OpenCode Remote companion..."
+  info "Installing openanywhere companion..."
 
   mkdir -p "$HOME/.local/share/openanywhere"
   local INSTALL_DIR="$HOME/.openanywhere"
@@ -292,7 +292,7 @@ LAUNCHER_EOF
 
   if [[ -n "$SHELL_RC" ]] && ! grep -q "openanywhere" "$SHELL_RC" 2>/dev/null; then
     echo "" >> "$SHELL_RC"
-    echo "# OpenCode Remote" >> "$SHELL_RC"
+    echo "# openanywhere" >> "$SHELL_RC"
     echo 'export PATH="$HOME/.openanywhere:$PATH"' >> "$SHELL_RC"
   fi
 
@@ -331,7 +331,7 @@ main() {
   echo -e "  • OpenCode is ready to serve as a remote AI workspace"
   echo -e "  • A companion daemon will keep everything running"
   echo ""
-  echo -e "  ${BOLD}Next, start OpenCode Remote:${NC}"
+  echo -e "  ${BOLD}Next, start openanywhere:${NC}"
   echo ""
   echo -e "    ${BLUE}openanywhere${NC}"
   echo ""
@@ -343,7 +343,7 @@ main() {
   echo ""
 
   # Ask if user wants to start now
-  read -p "  Start OpenCode Remote now? [Y/n] " -n 1 -r
+  read -p "  Start openanywhere now? [Y/n] " -n 1 -r
   echo ""
   if [[ $REPLY =~ ^[Yy]?$|^$ ]]; then
     echo ""

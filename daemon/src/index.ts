@@ -1,4 +1,4 @@
-// OpenCode Remote — Companion Daemon
+// openanywhere — Companion Daemon
 // Starts OpenCode, generates QR code, monitors health.
 // Keep this THIN. OpenCode does the heavy lifting.
 
@@ -286,7 +286,7 @@ function printBanner(health: HealthResults, password: string): void {
 
   console.log("");
   console.log("  ╔══════════════════════════════════════════╗");
-  console.log("  ║      OpenCode Remote — " + (allOk ? "Ready!            ║" : "⚠ Issues Found    ║"));
+  console.log("  ║      openanywhere — " + (allOk ? "Ready!            ║" : "⚠ Issues Found    ║"));
   console.log("  ╚══════════════════════════════════════════╝");
   console.log("");
 
@@ -637,7 +637,7 @@ const AUTH_PAGE = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenCode Remote</title>
+<title>openanywhere</title>
 <style>
   @property --border-angle {
     syntax: "<angle>";
@@ -1032,8 +1032,9 @@ const AUTH_PAGE = `<!DOCTYPE html>
       </svg>
     </div>
 
-    <h1>OpenCode Remote</h1>
-    <p class="subtitle">Enter the password shown in your terminal</p>
+    <h1>openanywhere</h1>
+    <p class="subtitle" style="margin-bottom:8px;">by vaultzero.dev</p>
+    <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">Enter the password shown in your terminal</p>
 
     <form onsubmit="return submitPassword(event)" autocomplete="off">
       <div class="input-group">
@@ -1251,7 +1252,7 @@ async function doStart(): Promise<void> {
 
   const config: Config = { port, password, hostname };
 
-  log("Starting OpenCode Remote daemon...");
+  log("Starting openanywhere daemon...");
 
   // Check prerequisites
   try {

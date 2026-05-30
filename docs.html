@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Documentation — OpenCode Remote</title>
-<meta name="description" content="Complete documentation for OpenCode Remote. Installation, architecture, security, configuration, and troubleshooting.">
+<title>Documentation — openanywhere</title>
+<meta name="description" content="Complete documentation for openanywhere. Installation, architecture, security, configuration, and troubleshooting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -784,7 +784,7 @@ footer{
 <nav>
   <a href="/" class="nav-logo">
     <span class="nav-dot"></span>
-    OpenCode Remote
+    openanywhere
   </a>
   <div class="nav-links">
     <a href="/" class="nav-pill">Home</a>
@@ -839,12 +839,13 @@ footer{
         <div class="section-label">
           <span class="section-label-text">Documentation</span>
         </div>
-        <h2>What is OpenCode Remote?</h2>
+        <p style="font-family: var(--fb); font-size: 13px; color: var(--text-3); margin-bottom: 10px;">by vaultzero.dev</p>
+        <h2>What is openanywhere?</h2>
         <p>
-          OpenCode Remote is a companion daemon that makes your <strong>OpenCode AI coding workspace</strong> accessible from any device — your phone, tablet, or another computer. It creates a secure, private tunnel so you can code with full AI assistance wherever you are.
+          openanywhere is a companion daemon that makes your <strong>OpenCode AI coding workspace</strong> accessible from any device — your phone, tablet, or another computer. It creates a secure, private tunnel so you can code with full AI assistance wherever you are.
         </p>
         <p>
-          There's no cloud dependency, no port forwarding, and no compromise on features. Your code and credentials stay on your machine. OpenCode Remote just makes it reachable.
+          There's no cloud dependency, no port forwarding, and no compromise on features. Your code and credentials stay on your machine. openanywhere just makes it reachable.
         </p>
 
         <h3>Key principles</h3>
@@ -856,7 +857,7 @@ footer{
         </ul>
 
         <div class="callout callout--info">
-          <p>OpenCode Remote is not affiliated with or endorsed by OpenCode or Tailscale. It's an independent companion tool built by developers who want to code from anywhere.</p>
+          <p>openanywhere is not affiliated with or endorsed by OpenCode or Tailscale. It's an independent companion tool built by developers who want to code from anywhere.</p>
         </div>
       </article>
 
@@ -897,7 +898,7 @@ footer{
           <li><strong>Check prerequisites</strong> — Verifies macOS, internet connectivity, and required dependencies.</li>
           <li><strong>Install dependencies</strong> — Homebrew, Tailscale, Bun (for OpenCode), and OpenCode itself are installed automatically if missing.</li>
           <li><strong>Authenticate Tailscale</strong> — Opens your browser so you can log into your Tailscale account.</li>
-          <li><strong>Install the companion daemon</strong> — Downloads or builds the OpenCode Remote binary and adds it to your <code>PATH</code>.</li>
+          <li><strong>Install the companion daemon</strong> — Downloads or builds the openanywhere binary and adds it to your <code>PATH</code>.</li>
         </ol>
 
         <h3>First run</h3>
@@ -943,7 +944,7 @@ footer{
         </div>
         <h2>How It Works</h2>
         <p>
-          OpenCode Remote combines a lightweight daemon, a secure auth proxy, and Tailscale's mesh network to give you remote access to your coding workspace without any cloud infrastructure.
+          openanywhere combines a lightweight daemon, a secure auth proxy, and Tailscale's mesh network to give you remote access to your coding workspace without any cloud infrastructure.
         </p>
 
         <div class="arch-diagram" aria-label="Architecture diagram showing the data flow from your phone through Tailscale to the daemon and OpenCode">
@@ -997,7 +998,7 @@ footer{
         </div>
         <h2>Configuration</h2>
         <p>
-          OpenCode Remote stores all configuration and state on disk. Everything lives in a single directory.
+          openanywhere stores all configuration and state on disk. Everything lives in a single directory.
         </p>
 
         <h3>Data directory</h3>
@@ -1024,7 +1025,7 @@ footer{
         </div>
 
         <h3>Environment variables</h3>
-        <p>OpenCode Remote does not use environment variables for configuration. All settings are derived automatically:</p>
+        <p>openanywhere does not use environment variables for configuration. All settings are derived automatically:</p>
 
         <table class="config-table">
           <thead>
@@ -1082,7 +1083,7 @@ footer{
         </div>
         <h2>Security</h2>
         <p>
-          OpenCode Remote is designed with privacy and security as first principles. Here's exactly how your data is protected at each layer.
+          openanywhere is designed with privacy and security as first principles. Here's exactly how your data is protected at each layer.
         </p>
 
         <h3>Network security</h3>
@@ -1133,7 +1134,7 @@ footer{
         </div>
         <h2>Launch Agent</h2>
         <p>
-          You can configure OpenCode Remote to start automatically when you log into your Mac. This uses macOS <code>launchd</code> — the native service manager.
+          You can configure openanywhere to start automatically when you log into your Mac. This uses macOS <code>launchd</code> — the native service manager.
         </p>
 
         <h3>Installing the launch agent</h3>
@@ -1280,7 +1281,7 @@ footer{
 
         <h3>Is this free?</h3>
         <p>
-          Yes. OpenCode Remote is open-source and free. The only dependency with a pricing model is Tailscale, whose free tier supports up to 100 devices and 3 users — more than enough for personal use.
+          Yes. openanywhere is open-source and free. The only dependency with a pricing model is Tailscale, whose free tier supports up to 100 devices and 3 users — more than enough for personal use.
         </p>
 
         <h3>Does this work on Linux?</h3>
@@ -1322,7 +1323,7 @@ footer{
 <!-- FOOTER -->
 <footer>
   <div class="foot-left">
-    <span class="foot-logo">OpenCode Remote</span>
+    <span class="foot-logo">openanywhere</span>
     <div class="foot-sep"></div>
     <span class="foot-note">Not affiliated with OpenCode or Tailscale.</span>
   </div>
