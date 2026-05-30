@@ -567,17 +567,15 @@ body > nav{
    ARCHITECTURE DIAGRAM (inline)
    ═══════════════════════════════════════════ */
 .arch-diagram{
-  display:grid;
-  grid-template-columns:1fr auto 1fr auto 1fr;
-  gap:8px;
-  align-items:center;
   margin:32px 0;
-  padding:28px 20px;
-  background:var(--bg-1);
-  border:1px solid var(--border);
   border-radius:var(--r-md);
-  overflow-x:auto;
-  font-size:12.5px;
+  overflow:hidden;
+}
+.arch-diagram img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:var(--r-md);
 }
 .arch-node{
   text-align:center;
@@ -745,8 +743,7 @@ footer{
   .main{margin-left:0;}
   .content-wrap{padding:0 28px;}
   footer{padding:36px 28px 36px 28px;}
-  .arch-diagram{grid-template-columns:1fr;gap:12px;text-align:center;}
-  .arch-arrow{transform:rotate(90deg);}
+  .arch-diagram{margin:24px 0;}
 }
 
 @media(max-width:640px){
@@ -947,12 +944,8 @@ footer{
           openanywhere combines a lightweight daemon, a secure auth proxy, and Tailscale's mesh network to give you remote access to your coding workspace without any cloud infrastructure.
         </p>
 
-        <div class="arch-diagram" aria-label="Architecture diagram showing the data flow from your phone through Tailscale to the daemon and OpenCode">
-          <div class="arch-node">Phone / Tablet<small>Browser</small></div>
-          <div class="arch-arrow"><span class="arch-connector"><span class="arch-connector-line"></span><span class="arch-connector-arrow"></span></span> Tailscale<br>Tunnel</div>
-          <div class="arch-node">Auth Proxy<small>:3947</small></div>
-          <div class="arch-arrow"><span class="arch-connector"><span class="arch-connector-line"></span><span class="arch-connector-arrow"></span></span> localhost</div>
-          <div class="arch-node">OpenCode<small>Workspace</small></div>
+        <div class="arch-diagram">
+          <img src="/assets/diagram.png" alt="Architecture diagram showing how openanywhere connects your device through Tailscale's encrypted mesh to the auth proxy and OpenCode on your machine" loading="lazy">
         </div>
 
         <h3>The daemon</h3>
