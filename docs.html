@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation — OpenCode Remote</title>
+<meta name="description" content="Complete documentation for OpenCode Remote. Installation, architecture, security, configuration, and troubleshooting.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   VARIABLES
+   ═══════════════════════════════════════════ */
+:root {
+  --bg:       #050507;
+  --bg-1:     #0c0c10;
+  --bg-2:     #141418;
+  --bg-3:     #1a1a20;
+  --border:   rgba(255,255,255,0.06);
+  --b-hover:  rgba(185,244,41,0.28);
+  --lime:     #b9f429;
+  --lime-glow:rgba(185,244,41,0.07);
+  --lime-mid: rgba(185,244,41,0.14);
+  --amber:    #e8a850;
+  --amber-glow: rgba(232,168,80,0.06);
+  --text:     #f0f0f2;
+  --text-2:   #9898a6;
+  --text-3:   #50505e;
+  --text-4:   #3a3a46;
+  --fd:       'Syne', sans-serif;
+  --fb:       'Outfit', sans-serif;
+  --fm:       'JetBrains Mono', monospace;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --sidebar-w: 260px;
+}
+
+/* ═══════════════════════════════════════════
+   RESET
+   ═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--fb);
+  font-size:16px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  scroll-behavior:smooth;
+}
+body{min-height:100vh;overflow-x:hidden;position:relative;}
+a{color:var(--lime);text-decoration:none;transition:color 0.22s ease;}
+a:hover{color:var(--text);}
+::selection{background:rgba(185,244,41,0.18);}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(185,244,41,0.14);border-radius:2px;}
+
+/* ═══════════════════════════════════════════
+   AMBIENT LAYERS
+   ═══════════════════════════════════════════ */
+.grid-bg{
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.016) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.016) 1px,transparent 1px);
+  background-size:64px 64px;
+  pointer-events:none;z-index:0;
+}
+.lime-halo{
+  position:fixed;
+  top:-20%;left:50%;
+  transform:translateX(-50%);
+  width:900px;height:900px;
+  background:radial-gradient(ellipse at center,rgba(185,244,41,0.04) 0%,rgba(185,244,41,0.012) 38%,transparent 68%);
+  pointer-events:none;z-index:0;
+}
+.grain{
+  position:fixed;inset:0;
+  pointer-events:none;z-index:9999;
+  opacity:0.028;
+  mix-blend-mode:screen;
+}
+.grain svg{width:100%;height:100%;}
+
+.cursor-glow{
+  position:fixed;
+  width:380px;height:380px;
+  border-radius:50%;
+  pointer-events:none;
+  background:radial-gradient(circle,rgba(185,244,41,0.04) 0%,transparent 70%);
+  transform:translate(-50%,-50%);
+  z-index:0;
+  opacity:0;
+  transition:opacity 0.4s ease;
+}
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;
+  z-index:100;
+  height:62px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;
+  background:rgba(5,5,7,0.88);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--fd);
+  font-size:13.5px;font-weight:700;
+  letter-spacing:0.09em;text-transform:uppercase;
+  color:var(--text);
+}
+.nav-logo:hover{color:var(--text);}
+.nav-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--lime);
+  box-shadow:0 0 10px rgba(185,244,41,0.65);
+  animation:dot-pulse 2.5s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes dot-pulse{
+  0%,100%{opacity:1;box-shadow:0 0 10px rgba(185,244,41,0.65);}
+  50%{opacity:0.55;box-shadow:0 0 18px rgba(185,244,41,0.25);}
+}
+.nav-links{display:flex;align-items:center;gap:6px;}
+.nav-pill{
+  font-family:var(--fb);
+  font-size:13px;font-weight:500;
+  color:var(--text-2);
+  padding:6px 17px;
+  border:1px solid var(--border);
+  border-radius:40px;
+  transition:all 0.24s ease;
+  display:flex;align-items:center;gap:7px;
+}
+.nav-pill:hover{
+  color:var(--text);
+  border-color:rgba(255,255,255,0.11);
+  background:rgba(255,255,255,0.04);
+}
+.nav-pill--active{
+  color:var(--lime);
+  border-color:rgba(185,244,41,0.22);
+  background:rgba(185,244,41,0.06);
+}
+.nav-pill--cta{
+  background:var(--lime);
+  color:#0c1400;
+  border-color:var(--lime);
+  font-weight:600;
+}
+.nav-pill--cta:hover{
+  background:#c8ff30;color:#0c1400;
+  border-color:#c8ff30;
+  box-shadow:0 0 28px rgba(185,244,41,0.32);
+}
+
+/* Hamburger */
+.nav-hamburger{
+  display:none;align-items:center;justify-content:center;
+  width:38px;height:38px;
+  background:none;border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  cursor:pointer;position:relative;z-index:101;
+  transition:border-color 0.22s ease;
+}
+.nav-hamburger:hover{border-color:rgba(255,255,255,0.14);}
+.hamburger-line{
+  display:block;width:17px;height:1.5px;
+  background:var(--text-2);
+  position:relative;
+  transition:background 0.22s ease;
+}
+.hamburger-line::before,.hamburger-line::after{
+  content:'';display:block;width:17px;height:1.5px;
+  background:var(--text-2);
+  position:absolute;
+  transition:transform 0.28s cubic-bezier(0.4,0,0.2,1),top 0.28s ease,bottom 0.28s ease;
+}
+.hamburger-line::before{top:-5px;}
+.hamburger-line::after{bottom:-5px;}
+.nav-hamburger.open .hamburger-line{background:transparent;}
+.nav-hamburger.open .hamburger-line::before{top:0;transform:rotate(45deg);background:var(--lime);}
+.nav-hamburger.open .hamburger-line::after{bottom:0;transform:rotate(-45deg);background:var(--lime);}
+
+/* ═══════════════════════════════════════════
+   PAGE LAYOUT
+   ═══════════════════════════════════════════ */
+.page{
+  display:flex;
+  padding-top:62px;
+  min-height:100vh;
+  position:relative;z-index:1;
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════ */
+.sidebar{
+  position:fixed;
+  top:62px;left:0;bottom:0;
+  width:var(--sidebar-w);
+  overflow-y:auto;
+  padding:40px 0 32px 48px;
+  border-right:1px solid var(--border);
+  background:var(--bg);
+  z-index:50;
+}
+.sidebar::-webkit-scrollbar{width:0;}
+
+.sidebar-title{
+  font-family:var(--fm);
+  font-size:9.5px;font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:0.18em;
+  color:var(--text-3);
+  margin-bottom:24px;
+}
+
+.sidebar-nav{display:flex;flex-direction:column;gap:3px;}
+.sidebar-link{
+  position:relative;
+  font-family:var(--fb);
+  font-size:13.5px;font-weight:400;
+  color:var(--text-2);
+  padding:6px 12px 6px 0;
+  border-radius:4px;
+  transition:all 0.22s ease;
+  line-height:1.3;
+}
+
+/* Active indicator — vertical bar on left */
+.sidebar-link::before{
+  content:'';
+  position:absolute;
+  left:-19px;top:0;bottom:0;
+  width:2px;
+  background:var(--lime);
+  transform:scaleY(0);
+  transform-origin:top;
+  transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+
+.sidebar-link:hover{color:var(--text);}
+.sidebar-link.active{color:var(--lime);}
+.sidebar-link.active::before{transform:scaleY(1);}
+
+/* Sidebar section groups */
+.sidebar-section{
+  margin-bottom:20px;
+}
+.sidebar-section-label{
+  display:block;
+  font-family:var(--fm);
+  font-size:9.5px;font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:0.18em;
+  color:var(--text-4);
+  margin-bottom:8px;
+  margin-top:8px;
+  padding-left:0;
+}
+
+/* ═══════════════════════════════════════════
+   MAIN CONTENT
+   ═══════════════════════════════════════════ */
+.main{
+  flex:1;
+  margin-left:var(--sidebar-w);
+  padding:56px 0 120px;
+  min-width:0;
+}
+
+.content-wrap{
+  max-width:740px;
+  margin:0 auto;
+  padding:0 64px;
+}
+
+/* ═══════════════════════════════════════════
+   DOC SECTIONS
+   ═══════════════════════════════════════════ */
+.doc-section{
+  margin-bottom:80px;
+  opacity:0;
+  transform:translateY(16px);
+  animation:sectionReveal 0.65s cubic-bezier(0.23,1,0.32,1) forwards;
+}
+.doc-section:nth-child(1){animation-delay:0.05s;}
+.doc-section:nth-child(2){animation-delay:0.10s;}
+.doc-section:nth-child(3){animation-delay:0.15s;}
+.doc-section:nth-child(4){animation-delay:0.20s;}
+.doc-section:nth-child(5){animation-delay:0.25s;}
+.doc-section:nth-child(6){animation-delay:0.30s;}
+.doc-section:nth-child(7){animation-delay:0.35s;}
+.doc-section:nth-child(8){animation-delay:0.40s;}
+@keyframes sectionReveal{to{opacity:1;transform:none;}}
+
+.section-label{
+  display:inline-flex;align-items:center;gap:12px;
+  margin-bottom:12px;
+}
+.section-label::before{
+  content:'';width:22px;height:1.5px;
+  background:var(--lime);flex-shrink:0;
+}
+.section-label-text{
+  font-family:var(--fm);font-size:10.5px;font-weight:400;
+  text-transform:uppercase;letter-spacing:0.14em;
+  color:var(--lime);
+}
+
+.doc-section h2{
+  font-family:var(--fd);
+  font-size:clamp(28px,2.8vw,38px);
+  font-weight:700;
+  letter-spacing:-0.04em;
+  line-height:1.1;
+  color:var(--text);
+  margin-bottom:8px;
+}
+.doc-section h2+p{
+  font-size:17px;color:var(--text-2);
+  line-height:1.58;
+  margin-bottom:32px;
+  max-width:560px;
+}
+
+.doc-section h3{
+  font-family:var(--fd);
+  font-size:19px;font-weight:700;
+  letter-spacing:-0.025em;
+  color:var(--text);
+  margin-top:44px;
+  margin-bottom:12px;
+  padding-top:28px;
+  border-top:1px solid var(--border);
+}
+.doc-section h3:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+
+.doc-section p{
+  font-size:15px;color:var(--text-2);line-height:1.7;
+  margin-bottom:18px;
+}
+.doc-section p strong{color:var(--text);font-weight:600;}
+.doc-section p code{
+  font-family:var(--fm);
+  font-size:13px;font-weight:400;
+  color:var(--lime);
+  background:rgba(185,244,41,0.07);
+  padding:2px 7px;border-radius:3px;
+}
+
+/* Inline lists */
+.doc-section ul,.doc-section ol{
+  padding-left:24px;
+  margin-bottom:20px;
+  color:var(--text-2);
+  font-size:15px;line-height:1.75;
+}
+.doc-section li{margin-bottom:6px;}
+.doc-section li::marker{color:var(--text-4);}
+.doc-section li code{
+  font-family:var(--fm);
+  font-size:13px;font-weight:400;
+  color:var(--lime);
+  background:rgba(185,244,41,0.07);
+  padding:2px 7px;border-radius:3px;
+}
+
+/* ═══════════════════════════════════════════
+   CODE BLOCKS
+   ═══════════════════════════════════════════ */
+.code-block{
+  position:relative;
+  margin:28px 0;
+  background:var(--bg-2);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:var(--r-md);
+  overflow:hidden;
+  transition:border-color 0.32s ease;
+}
+.code-block:hover{border-color:rgba(255,255,255,0.09);}
+
+/* Paper fold effect */
+.code-block::after{
+  content:'';
+  position:absolute;top:0;right:0;
+  width:0;height:0;
+  border-style:solid;
+  border-width:0 0 24px 24px;
+  border-color:transparent transparent var(--bg) transparent;
+  pointer-events:none;z-index:2;
+  opacity:0.5;
+  transition:opacity 0.32s ease;
+}
+.code-block:hover::after{opacity:0.8;}
+
+.code-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  background:rgba(255,255,255,0.015);
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.code-lang{
+  font-family:var(--fm);font-size:10.5px;font-weight:400;
+  color:var(--text-3);letter-spacing:0.06em;
+  text-transform:uppercase;
+}
+.code-filename{
+  font-family:var(--fm);font-size:10.5px;font-weight:400;
+  color:var(--text-3);letter-spacing:0.04em;
+}
+.code-copy{
+  font-family:var(--fb);font-size:11px;font-weight:500;
+  color:var(--text-3);background:none;border:1px solid var(--border);
+  padding:3px 11px;border-radius:4px;
+  cursor:pointer;transition:all 0.2s ease;
+  letter-spacing:0.03em;
+}
+.code-copy:hover{
+  color:var(--lime);border-color:rgba(185,244,41,0.28);
+  background:rgba(185,244,41,0.05);
+}
+.code-copy.copied{color:var(--lime);border-color:var(--lime);}
+
+.code-body{
+  padding:18px 20px;
+  overflow-x:auto;
+  position:relative;z-index:1;
+}
+.code-body pre{
+  margin:0;
+  font-family:var(--fm);
+  font-size:13px;font-weight:400;
+  line-height:1.65;
+  color:#c8c8d8;
+  white-space:pre-wrap;word-break:break-word;
+}
+.code-body .c-prompt{color:var(--lime);user-select:none;}
+.code-body .c-cmd{color:var(--text);}
+.code-body .c-comment{color:var(--text-4);font-style:italic;}
+.code-body .c-str{color:#f0c070;}
+.code-body .c-keyword{color:#c792ea;}
+.code-body .c-func{color:#82aaff;}
+.code-body .c-prop{color:#ffb86c;}
+
+/* ═══════════════════════════════════════════
+   CALLOUT / NOTE BOXES
+   ═══════════════════════════════════════════ */
+.callout{
+  margin:28px 0;
+  padding:20px 24px;
+  border-radius:var(--r-md);
+  border:1px solid;
+  position:relative;
+  font-size:14.5px;line-height:1.65;
+  color:var(--text-2);
+}
+.callout::before{
+  font-family:var(--fm);
+  font-size:10.5px;font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+  display:block;
+  margin-bottom:8px;
+}
+.callout p{margin-bottom:6px;font-size:14.5px;}
+.callout p:last-child{margin-bottom:0;}
+.callout code{
+  font-family:var(--fm);
+  font-size:12.5px;font-weight:400;
+  color:var(--lime);
+  background:rgba(185,244,41,0.07);
+  padding:1px 6px;border-radius:3px;
+}
+
+.callout--info{
+  background:rgba(185,244,41,0.03);
+  border-color:rgba(185,244,41,0.12);
+}
+.callout--info::before{content:'Note';color:var(--lime);}
+
+.callout--warn{
+  background:rgba(232,168,80,0.04);
+  border-color:rgba(232,168,80,0.15);
+}
+.callout--warn::before{content:'Warning';color:var(--amber);}
+
+.callout--tip{
+  background:rgba(100,180,255,0.03);
+  border-color:rgba(100,180,255,0.12);
+}
+.callout--tip::before{content:'Tip';color:#64b4ff;}
+
+/* ═══════════════════════════════════════════
+   TABLE OF CONFIG OPTIONS
+   ═══════════════════════════════════════════ */
+.config-table{
+  width:100%;
+  border-collapse:collapse;
+  margin:28px 0;
+  font-size:14px;
+  border:1px solid var(--border);
+  border-radius:var(--r-md);
+  overflow:hidden;
+}
+.config-table thead{
+  background:var(--bg-2);
+}
+.config-table th{
+  text-align:left;
+  padding:12px 16px;
+  font-family:var(--fm);
+  font-size:10.5px;font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--text-3);
+  border-bottom:1px solid var(--border);
+}
+.config-table td{
+  padding:11px 16px;
+  color:var(--text-2);
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  font-family:var(--fb);
+  line-height:1.5;
+}
+.config-table tr:last-child td{border-bottom:none;}
+.config-table tr:hover td{background:rgba(255,255,255,0.012);}
+.config-table td:first-child{
+  font-family:var(--fm);
+  font-size:12.5px;
+  color:var(--lime);
+  white-space:nowrap;
+}
+.config-table td:nth-child(3){
+  font-family:var(--fm);
+  font-size:12px;
+  color:var(--text-3);
+}
+
+/* ═══════════════════════════════════════════
+   ARCHITECTURE DIAGRAM (inline)
+   ═══════════════════════════════════════════ */
+.arch-diagram{
+  display:grid;
+  grid-template-columns:1fr auto 1fr auto 1fr;
+  gap:8px;
+  align-items:center;
+  margin:32px 0;
+  padding:28px 20px;
+  background:var(--bg-1);
+  border:1px solid var(--border);
+  border-radius:var(--r-md);
+  overflow-x:auto;
+  font-size:12.5px;
+}
+.arch-node{
+  text-align:center;
+  padding:14px 10px;
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  font-family:var(--fd);
+  font-size:12.5px;font-weight:600;
+  color:var(--text);
+  letter-spacing:-0.01em;
+  white-space:nowrap;
+}
+.arch-node small{
+  display:block;
+  font-family:var(--fm);
+  font-size:10px;font-weight:400;
+  color:var(--text-3);
+  letter-spacing:0.04em;
+  margin-top:3px;
+}
+.arch-arrow{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-4);
+  font-family:var(--fm);
+  font-size:10px;
+  letter-spacing:0.04em;
+  white-space:nowrap;
+  padding:0 8px;
+}
+.arch-connector{
+  display:flex;align-items:center;gap:2px;
+  flex-shrink:0;
+}
+.arch-connector-line{
+  width:22px;height:1px;
+  background:var(--border);
+}
+.arch-connector-arrow{
+  width:0;height:0;
+  border-left:5px solid var(--border);
+  border-top:4px solid transparent;
+  border-bottom:4px solid transparent;
+}
+
+/* ═══════════════════════════════════════════
+   DATA DIRECTORY TABLE
+   ═══════════════════════════════════════════ */
+.file-tree{
+  background:var(--bg-1);
+  border:1px solid var(--border);
+  border-radius:var(--r-md);
+  padding:20px 22px;
+  margin:28px 0;
+  font-family:var(--fm);
+  font-size:13px;line-height:1.8;
+  color:var(--text-2);
+  overflow-x:auto;
+}
+.file-tree .ft-dir{color:#64b4ff;}
+.file-tree .ft-file{color:var(--text-2);}
+.file-tree .ft-comment{color:var(--text-4);}
+.file-tree .ft-value{color:var(--amber);}
+
+/* ═══════════════════════════════════════════
+   STEP LIST (used in Getting Started)
+   ═══════════════════════════════════════════ */
+.step-list{counter-reset:step;list-style:none;padding-left:0;}
+.step-list li{
+  counter-increment:step;
+  position:relative;
+  padding-left:48px;
+  margin-bottom:32px;
+  font-size:15px;
+  color:var(--text-2);
+  line-height:1.7;
+  min-height:32px;
+}
+.step-list li::before{
+  content:counter(step);
+  position:absolute;left:0;top:0;
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);
+  font-size:14px;font-weight:700;
+  color:var(--lime);
+  border:1px solid rgba(185,244,41,0.2);
+  border-radius:50%;
+}
+.step-list li strong{color:var(--text);display:block;margin-bottom:3px;}
+
+/* ═══════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════ */
+footer{
+  position:relative;z-index:1;
+  border-top:1px solid var(--border);
+  padding:44px 48px 44px calc(var(--sidebar-w) + 48px);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:20px;
+}
+.foot-left{display:flex;align-items:center;gap:14px;}
+.foot-logo{
+  font-family:var(--fd);
+  font-size:13px;font-weight:700;
+  letter-spacing:0.07em;text-transform:uppercase;
+  color:var(--text-2);
+}
+.foot-sep{width:1px;height:14px;background:var(--border);}
+.foot-note{
+  font-family:var(--fb);font-size:12.5px;
+  color:var(--text-3);
+}
+.foot-links{display:flex;align-items:center;gap:2px;}
+.foot-link{
+  font-family:var(--fb);font-size:13px;font-weight:500;
+  color:var(--text-3);
+  padding:6px 14px;border-radius:40px;
+  transition:all 0.22s ease;
+  display:flex;align-items:center;gap:7px;
+}
+.foot-link:hover{color:var(--text-2);background:rgba(255,255,255,0.04);}
+
+/* ═══════════════════════════════════════════
+   REDUCED MOTION
+   ═══════════════════════════════════════════ */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}
+  .doc-section{opacity:1!important;transform:none!important;}
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media(max-width:1024px){
+  .content-wrap{padding:0 48px;}
+}
+
+@media(max-width:860px){
+  /* Hide sidebar, show hamburger */
+  .nav-hamburger{display:flex;}
+  .sidebar{
+    transform:translateX(-100%);
+    transition:transform 0.38s cubic-bezier(0.4,0,0.2,1);
+    z-index:90;
+    padding:28px 32px;
+    background:rgba(5,5,7,0.96);
+    backdrop-filter:blur(28px);
+    -webkit-backdrop-filter:blur(28px);
+    border-right:1px solid var(--border);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.55);
+    z-index:85;
+    opacity:0;transition:opacity 0.32s ease;
+  }
+  .sidebar-overlay.visible{opacity:1;}
+  .main{margin-left:0;}
+  .content-wrap{padding:0 28px;}
+  footer{padding:36px 28px 36px 28px;}
+  .arch-diagram{grid-template-columns:1fr;gap:12px;text-align:center;}
+  .arch-arrow{transform:rotate(90deg);}
+}
+
+@media(max-width:640px){
+  nav{padding:0 20px;}
+  .nav-links .nav-pill:not(.nav-pill--cta){display:none;}
+  .content-wrap{padding:0 20px;}
+  .main{padding:40px 0 80px;}
+  footer{padding:32px 20px;flex-direction:column;align-items:flex-start;}
+  .foot-left{flex-direction:column;align-items:flex-start;gap:8px;}
+  .foot-sep{display:none;}
+  .callout{padding:16px 18px;}
+  .config-table{font-size:13px;}
+  .config-table th,.config-table td{padding:8px 10px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Ambient layers -->
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="lime-halo" aria-hidden="true"></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+
+<div class="grain" aria-hidden="true">
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <filter id="n">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#n)"/>
+  </svg>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <span class="nav-dot"></span>
+    OpenCode Remote
+  </a>
+  <div class="nav-links">
+    <a href="/" class="nav-pill">Home</a>
+    <a href="/docs" class="nav-pill nav-pill--active">Docs</a>
+    <a href="https://github.com/drewsephski/openanywhere" class="nav-pill">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      GitHub
+    </a>
+    <a href="https://opencode.ai" class="nav-pill nav-pill--cta">Get Started</a>
+  </div>
+  <button class="nav-hamburger" id="hamburger" aria-label="Toggle sidebar menu">
+    <span class="hamburger-line"></span>
+  </button>
+</nav>
+
+<!-- PAGE LAYOUT -->
+<div class="page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-title">Documentation</div>
+    <nav class="sidebar-nav">
+      <a href="#overview" class="sidebar-link active">Overview</a>
+      <a href="#getting-started" class="sidebar-link">Getting Started</a>
+      <div class="sidebar-section">
+        <span class="sidebar-section-label">Reference</span>
+        <a href="#how-it-works" class="sidebar-link">How It Works</a>
+        <a href="#configuration" class="sidebar-link">Configuration</a>
+        <a href="#security" class="sidebar-link">Security</a>
+        <a href="#launch-agent" class="sidebar-link">Launch Agent</a>
+      </div>
+      <div class="sidebar-section">
+        <span class="sidebar-section-label">Support</span>
+        <a href="#troubleshooting" class="sidebar-link">Troubleshooting</a>
+        <a href="#faq" class="sidebar-link">FAQ</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
+
+    <div class="content-wrap">
+
+      <!-- ============================================================
+           OVERVIEW
+           ============================================================ -->
+      <article class="doc-section" id="overview">
+        <div class="section-label">
+          <span class="section-label-text">Documentation</span>
+        </div>
+        <h2>What is OpenCode Remote?</h2>
+        <p>
+          OpenCode Remote is a companion daemon that makes your <strong>OpenCode AI coding workspace</strong> accessible from any device — your phone, tablet, or another computer. It creates a secure, private tunnel so you can code with full AI assistance wherever you are.
+        </p>
+        <p>
+          There's no cloud dependency, no port forwarding, and no compromise on features. Your code and credentials stay on your machine. OpenCode Remote just makes it reachable.
+        </p>
+
+        <h3>Key principles</h3>
+        <ul>
+          <li><strong>Local-first</strong> — Nothing leaves your hardware. Your context, credentials, and file system stay private.</li>
+          <li><strong>Private tunnel</strong> — Uses Tailscale's peer-to-peer WireGuard encryption. No exposed ports, no relay servers.</li>
+          <li><strong>Full UI</strong> — Not a stripped-down mobile view. The complete OpenCode interface, fully functional in your phone's browser.</li>
+          <li><strong>Zero config</strong> — One command. Scan a QR code. That's it.</li>
+        </ul>
+
+        <div class="callout callout--info">
+          <p>OpenCode Remote is not affiliated with or endorsed by OpenCode or Tailscale. It's an independent companion tool built by developers who want to code from anywhere.</p>
+        </div>
+      </article>
+
+      <!-- ============================================================
+           GETTING STARTED
+           ============================================================ -->
+      <article class="doc-section" id="getting-started">
+        <div class="section-label">
+          <span class="section-label-text">Guide</span>
+        </div>
+        <h2>Getting Started</h2>
+        <p>
+          From zero to coding on your phone in under two minutes. Here's everything you need to know.
+        </p>
+
+        <h3>Prerequisites</h3>
+        <ul>
+          <li><strong>macOS</strong> — macOS 12 (Monterey) or later. Linux support is experimental.</li>
+          <li><strong>Tailscale account</strong> — Free tier is all you need. <a href="https://tailscale.com">Sign up here</a>.</li>
+          <li><strong>Internet connection</strong> — Required for initial setup and for the Tailscale tunnel.</li>
+        </ul>
+
+        <h3>Installation</h3>
+        <p>Run the one-line installer in your terminal:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'curl -fsSL vaultzero.dev/install.sh | bash')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">curl -fsSL vaultzero.dev/install.sh | bash</span></pre>
+          </div>
+        </div>
+
+        <p>The installer will:</p>
+        <ol class="step-list">
+          <li><strong>Check prerequisites</strong> — Verifies macOS, internet connectivity, and required dependencies.</li>
+          <li><strong>Install dependencies</strong> — Homebrew, Tailscale, Bun (for OpenCode), and OpenCode itself are installed automatically if missing.</li>
+          <li><strong>Authenticate Tailscale</strong> — Opens your browser so you can log into your Tailscale account.</li>
+          <li><strong>Install the companion daemon</strong> — Downloads or builds the OpenCode Remote binary and adds it to your <code>PATH</code>.</li>
+        </ol>
+
+        <h3>First run</h3>
+        <p>After installation, start the daemon:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'openanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">openanywhere</span></pre>
+          </div>
+        </div>
+
+        <p>The daemon will:</p>
+        <ol class="step-list">
+          <li><strong>Start OpenCode</strong> — Launches the full workspace in the background.</li>
+          <li><strong>Generate credentials</strong> — Creates a random password and authentication token for secure access.</li>
+          <li><strong>Display a QR code</strong> — Scan this on your phone to open the workspace.</li>
+          <li><strong>Print connection info</strong> — Shows the Tailscale IP and URL to connect from other devices.</li>
+        </ol>
+
+        <h3>Connecting from your phone</h3>
+        <ol class="step-list">
+          <li>Install <strong>Tailscale</strong> on your phone (iOS App Store or Google Play).</li>
+          <li>Log in with the <strong>same Tailscale account</strong> you used on your Mac.</li>
+          <li>Scan the QR code displayed in your terminal — or open the URL manually.</li>
+          <li>Enter the password shown in your terminal on the auth page.</li>
+        </ol>
+
+        <div class="callout callout--tip">
+          <p>The QR code contains the full URL including port number. Make sure your phone is on the same Tailscale network (the Tailscale app must show "Connected").</p>
+        </div>
+      </article>
+
+      <!-- ============================================================
+           HOW IT WORKS
+           ============================================================ -->
+      <article class="doc-section" id="how-it-works">
+        <div class="section-label">
+          <span class="section-label-text">Architecture</span>
+        </div>
+        <h2>How It Works</h2>
+        <p>
+          OpenCode Remote combines a lightweight daemon, a secure auth proxy, and Tailscale's mesh network to give you remote access to your coding workspace without any cloud infrastructure.
+        </p>
+
+        <div class="arch-diagram" aria-label="Architecture diagram showing the data flow from your phone through Tailscale to the daemon and OpenCode">
+          <div class="arch-node">Phone / Tablet<small>Browser</small></div>
+          <div class="arch-arrow"><span class="arch-connector"><span class="arch-connector-line"></span><span class="arch-connector-arrow"></span></span> Tailscale<br>Tunnel</div>
+          <div class="arch-node">Auth Proxy<small>:3947</small></div>
+          <div class="arch-arrow"><span class="arch-connector"><span class="arch-connector-line"></span><span class="arch-connector-arrow"></span></span> localhost</div>
+          <div class="arch-node">OpenCode<small>Workspace</small></div>
+        </div>
+
+        <h3>The daemon</h3>
+        <p>
+          The companion daemon (<code>openanywhere</code>) is the central orchestrator. It runs on your Mac and handles:
+        </p>
+        <ul>
+          <li>Starting and monitoring the OpenCode process</li>
+          <li>Generating and persisting authentication credentials</li>
+          <li>Running a local HTTP proxy that enforces password + token authentication</li>
+          <li>Displaying the QR code and connection URL</li>
+        </ul>
+
+        <h3>The auth proxy</h3>
+        <p>
+          The daemon starts a lightweight HTTP server that sits between the Tailscale tunnel and OpenCode. Every incoming request must carry a valid session token. First-time visitors are redirected to an authentication page where they enter the password to obtain a token.
+        </p>
+        <p>
+          An authenticated session token is valid for 24 hours, stored as an HTTP-only cookie. This means you don't need to re-enter your password every time you open the page.
+        </p>
+
+        <h3>Tailscale tunnel</h3>
+        <p>
+          Tailscale creates a WireGuard-encrypted mesh network between your devices. The daemon binds its proxy to the Tailscale IP address (not <code>localhost</code>), making it accessible only to devices on your personal Tailscale network. No ports are exposed to the public internet.
+        </p>
+
+        <div class="callout callout--info">
+          <p>Tailscale's free tier supports up to 100 devices and 3 users. This is more than enough for personal remote coding use.</p>
+        </div>
+
+        <h3>Crash recovery</h3>
+        <p>
+          The daemon monitors the OpenCode process. If it crashes more than 5 times within 60 seconds, the daemon stops restarting it to prevent crash loops. You'll need to manually restart the daemon in that case.
+        </p>
+      </article>
+
+      <!-- ============================================================
+           CONFIGURATION
+           ============================================================ -->
+      <article class="doc-section" id="configuration">
+        <div class="section-label">
+          <span class="section-label-text">Reference</span>
+        </div>
+        <h2>Configuration</h2>
+        <p>
+          OpenCode Remote stores all configuration and state on disk. Everything lives in a single directory.
+        </p>
+
+        <h3>Data directory</h3>
+        <p>
+          All files are stored in:
+        </p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">Default data directory</span>
+            <button class="code-copy" onclick="copyCode(this,'~/.local/share/openanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-cmd">~/.local/share/openanywhere/</span></pre>
+          </div>
+        </div>
+
+        <div class="file-tree">
+          <div><span class="ft-dir">~/.local/share/openanywhere/</span></div>
+          <div>  <span class="ft-dir">├──</span> <span class="ft-file">password</span>      <span class="ft-comment">— Auth password (generated on first run)</span></div>
+          <div>  <span class="ft-dir">├──</span> <span class="ft-file">token</span>         <span class="ft-comment">— Session signing token</span></div>
+          <div>  <span class="ft-dir">├──</span> <span class="ft-file">daemon.pid</span>     <span class="ft-comment">— Running daemon process ID</span></div>
+          <div>  <span class="ft-dir">├──</span> <span class="ft-file">daemon.log</span>    <span class="ft-comment">— Daemon runtime logs</span></div>
+          <div>  <span class="ft-dir">└──</span> <span class="ft-file">proxy-port</span>    <span class="ft-comment">— Auth proxy port number</span></div>
+        </div>
+
+        <h3>Environment variables</h3>
+        <p>OpenCode Remote does not use environment variables for configuration. All settings are derived automatically:</p>
+
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Setting</th>
+              <th>Source</th>
+              <th>Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>proxy-port</td>
+              <td>Random available port</td>
+              <td>Assigned by OS</td>
+            </tr>
+            <tr>
+              <td>hostname</td>
+              <td><code>tailscale ip -4</code></td>
+              <td>Tailscale IP</td>
+            </tr>
+            <tr>
+              <td>password</td>
+              <td>Generated on first run</td>
+              <td>16-char random</td>
+            </tr>
+            <tr>
+              <td>token</td>
+              <td>Generated on first run</td>
+              <td>20-char random</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Resetting credentials</h3>
+        <p>To generate a new password or token, delete the corresponding file and restart the daemon:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'rm ~/.local/share/openanywhere/password && openanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">rm ~/.local/share/openanywhere/password</span>
+<span class="c-prompt">$ </span><span class="c-cmd">openanywhere</span>
+<span class="c-comment"># New password will be generated and displayed</span></pre>
+          </div>
+        </div>
+      </article>
+
+      <!-- ============================================================
+           SECURITY
+           ============================================================ -->
+      <article class="doc-section" id="security">
+        <div class="section-label">
+          <span class="section-label-text">Reference</span>
+        </div>
+        <h2>Security</h2>
+        <p>
+          OpenCode Remote is designed with privacy and security as first principles. Here's exactly how your data is protected at each layer.
+        </p>
+
+        <h3>Network security</h3>
+        <ul>
+          <li><strong>WireGuard encryption</strong> — All traffic between your devices is encrypted by Tailscale's WireGuard implementation. Even on untrusted networks (coffee shop WiFi, airport), your session data cannot be intercepted.</li>
+          <li><strong>No port forwarding</strong> — The proxy binds exclusively to your Tailscale IP. It is unreachable from the public internet.</li>
+          <li><strong>No relay servers</strong> — Tailscale uses direct peer-to-peer connections when possible. Your data doesn't pass through any third-party servers.</li>
+        </ul>
+
+        <h3>Authentication</h3>
+        <ul>
+          <li><strong>Password-protected</strong> — A 16-character random password is generated on first run. Every device that connects must know this password.</li>
+          <li><strong>Session tokens</strong> — After successful authentication, the proxy issues a time-limited session token (HTTP-only cookie) valid for 24 hours. The password is never stored in cookies or localStorage.</li>
+          <li><strong>CSRF protection</strong> — The auth page includes CSRF token validation on the password submission endpoint.</li>
+        </ul>
+
+        <h3>Data storage</h3>
+        <ul>
+          <li><strong>Restrictive file permissions</strong> — The password file and token file are created with <code>0600</code> permissions (owner read/write only).</li>
+          <li><strong>Everything stays local</strong> — Your code, credentials, and file system never leave your hardware. OpenCode runs as a local process with full access to your machine — no cloud sandboxing.</li>
+        </ul>
+
+        <div class="callout callout--warn">
+          <p><strong>Tailscale network access</strong>: Any device on your Tailscale network can attempt to connect to the proxy port. The password protects the session, but you should only add trusted devices to your Tailscale network. Anyone on your Tailnet who knows the URL and password can access your OpenCode workspace.</p>
+        </div>
+
+        <h3>Password rotation</h3>
+        <p>To rotate your password, delete the password file and restart the daemon:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'rm ~/.local/share/openanywhere/password && openanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">rm ~/.local/share/openanywhere/password</span>
+<span class="c-prompt">$ </span><span class="c-cmd">openanywhere</span></pre>
+          </div>
+        </div>
+        <p>This will invalidate all existing sessions immediately since the token signing key is regenerated.</p>
+      </article>
+
+      <!-- ============================================================
+           LAUNCH AGENT
+           ============================================================ -->
+      <article class="doc-section" id="launch-agent">
+        <div class="section-label">
+          <span class="section-label-text">Reference</span>
+        </div>
+        <h2>Launch Agent</h2>
+        <p>
+          You can configure OpenCode Remote to start automatically when you log into your Mac. This uses macOS <code>launchd</code> — the native service manager.
+        </p>
+
+        <h3>Installing the launch agent</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'openanywhere install-boot')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">openanywhere install-boot</span>
+<span class="c-comment"># Creates ~/Library/LaunchAgents/com.vaultzero.openanywhere.plist</span>
+<span class="c-comment"># Daemon will start automatically on next login</span></pre>
+          </div>
+        </div>
+
+        <h3>What the launch agent does</h3>
+        <p>
+          The plist configures <code>launchd</code> to:
+        </p>
+        <ul>
+          <li>Start the daemon at user login</li>
+          <li>Automatically restart if it crashes (with a 5-second delay)</li>
+          <li>Run with your normal user permissions (not as root)</li>
+          <li>Pass the same environment that a terminal session would have</li>
+        </ul>
+
+        <h3>Removing the launch agent</h3>
+        <p>Stop the daemon and remove the launch agent:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'openanywhere kill\nlaunchctl unload ~/Library/LaunchAgents/com.vaultzero.openanywhere.plist\nrm ~/Library/LaunchAgents/com.vaultzero.openanywhere.plist')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">openanywhere kill</span>
+<span class="c-prompt">$ </span><span class="c-cmd">launchctl unload ~/Library/LaunchAgents/com.vaultzero.openanywhere.plist</span>
+<span class="c-prompt">$ </span><span class="c-cmd">rm ~/Library/LaunchAgents/com.vaultzero.openanywhere.plist</span></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--tip">
+          <p>Use <code>openanywhere kill</code> to stop a running daemon (whether started manually or by launchd). Use <code>openanywhere status</code> to check if a daemon is currently running.</p>
+        </div>
+      </article>
+
+      <!-- ============================================================
+           TROUBLESHOOTING
+           ============================================================ -->
+      <article class="doc-section" id="troubleshooting">
+        <div class="section-label">
+          <span class="section-label-text">Support</span>
+        </div>
+        <h2>Troubleshooting</h2>
+        <p>
+          Common issues and how to resolve them.
+        </p>
+
+        <h3>Tailscale is not connected</h3>
+        <p><strong>Symptom</strong>: The daemon fails to start or shows <code>No Tailscale IP found</code>.</p>
+        <p><strong>Fix</strong>:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'tailscale status')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">tailscale status</span>
+<span class="c-comment"># Should show "Tailscale is running"</span>
+<span class="c-prompt">$ </span><span class="c-cmd">tailscale up</span>
+<span class="c-comment"># Re-authenticate if needed</span></pre>
+          </div>
+        </div>
+
+        <h3>Can't connect from phone</h3>
+        <p><strong>Symptom</strong>: Browser times out or shows "connection refused" when opening the URL on your phone.</p>
+        <p><strong>Fix</strong>: Verify both devices are on the same Tailscale network:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'tailscale status')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">tailscale status</span>
+<span class="c-comment"># You should see both your Mac and phone listed</span></pre>
+          </div>
+        </div>
+        <p>Make sure both devices are logged into the <strong>same Tailscale account</strong> — not different accounts, not different organizations.</p>
+
+        <h3>OpenCode fails to start</h3>
+        <p><strong>Symptom</strong>: The daemon starts but OpenCode doesn't launch, or crashes immediately.</p>
+        <p><strong>Fix</strong>:</p>
+        <ul>
+          <li>Verify OpenCode is installed: <code>opencode --version</code></li>
+          <li>Check the daemon logs: <code>cat ~/.local/share/openanywhere/daemon.log</code></li>
+          <li>If OpenCode crashed more than 5 times in a minute, the daemon stops restarting it. Restart manually: <code>openanywhere</code></li>
+        </ul>
+
+        <h3>Port already in use</h3>
+        <p><strong>Symptom</strong>: <code>EADDRINUSE</code> error or the daemon fails to bind its proxy port.</p>
+        <p><strong>Fix</strong>: Kill any existing daemon process first:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'openanywhere kill\nopenanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">openanywhere kill</span>
+<span class="c-prompt">$ </span><span class="c-cmd">openanywhere</span></pre>
+          </div>
+        </div>
+
+        <h3>Forgot the password</h3>
+        <p><strong>Symptom</strong>: Can't remember the password to connect from a new device.</p>
+        <p><strong>Fix</strong>: The password is stored in <code>~/.local/share/openanywhere/password</code>. Display it:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'cat ~/.local/share/openanywhere/password')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">cat ~/.local/share/openanywhere/password</span></pre>
+          </div>
+        </div>
+        <p>Or reset it entirely (invalidates all active sessions):</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">Shell</span>
+            <button class="code-copy" onclick="copyCode(this,'rm ~/.local/share/openanywhere/password && openanywhere')">Copy</button>
+          </div>
+          <div class="code-body">
+            <pre><span class="c-prompt">$ </span><span class="c-cmd">rm ~/.local/share/openanywhere/password && openanywhere</span></pre>
+          </div>
+        </div>
+      </article>
+
+      <!-- ============================================================
+           FAQ
+           ============================================================ -->
+      <article class="doc-section" id="faq">
+        <div class="section-label">
+          <span class="section-label-text">Support</span>
+        </div>
+        <h2>FAQ</h2>
+
+        <h3>Is this free?</h3>
+        <p>
+          Yes. OpenCode Remote is open-source and free. The only dependency with a pricing model is Tailscale, whose free tier supports up to 100 devices and 3 users — more than enough for personal use.
+        </p>
+
+        <h3>Does this work on Linux?</h3>
+        <p>
+          Linux support is experimental. The installer runs on Linux and the daemon compiles for <code>linux-x64</code>. However, the launch agent feature depends on <code>launchd</code> (macOS-specific). On Linux you'll need to start the daemon manually or configure <code>systemd</code> yourself.
+        </p>
+
+        <h3>Does this work on Windows?</h3>
+        <p>
+          Not currently. The daemon is compiled for macOS (ARM64 + x64) and Linux (x64). Windows support is not planned but contributions are welcome.
+        </p>
+
+        <h3>What ports need to be open?</h3>
+        <p>
+          None. The auth proxy binds to your Tailscale IP — it's only reachable from devices on your Tailscale network. You never need to configure port forwarding on your router.
+        </p>
+
+        <h3>Can I use a custom domain?</h3>
+        <p>
+          Not directly. The daemon serves over HTTP (not HTTPS) on your Tailscale IP. If you want HTTPS, you could set up a reverse proxy with a Tailscale Funnel or use MagicDNS, but this is outside the scope of the built-in proxy.
+        </p>
+
+        <h3>How do session tokens work?</h3>
+        <p>
+          When you enter the correct password on the auth page, the proxy generates a signed session token and stores it as an HTTP-only cookie. This token is valid for 24 hours. During that time, you can refresh the page or reconnect without re-entering the password.
+        </p>
+
+        <h3>Can multiple people use the same instance?</h3>
+        <p>
+          Technically yes — anyone on your Tailscale network who knows the password can connect. However, this isn't recommended for shared use. The session token is tied to your OpenCode process, which runs in a single directory context. Multiple concurrent users would interfere with each other.
+        </p>
+      </article>
+
+    </div>
+  </main>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-left">
+    <span class="foot-logo">OpenCode Remote</span>
+    <div class="foot-sep"></div>
+    <span class="foot-note">Not affiliated with OpenCode or Tailscale.</span>
+  </div>
+  <div class="foot-links">
+    <a href="/" class="foot-link">Home</a>
+    <a href="/docs" class="foot-link">Docs</a>
+    <a href="https://opencode.ai" class="foot-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      OpenCode
+    </a>
+    <a href="https://tailscale.com" class="foot-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Tailscale
+    </a>
+    <a href="https://github.com/drewsephski/openanywhere" class="foot-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      GitHub
+    </a>
+  </div>
+</footer>
+
+<!-- SCRIPTS -->
+<script>
+(function(){
+  'use strict';
+
+  /* ── Cursor glow ── */
+  var glow = document.getElementById('cursorGlow');
+  var mx=0,my=0,gx=0,gy=0,vis=false;
+  document.addEventListener('mousemove',function(e){
+    mx=e.clientX;my=e.clientY;
+    if(!vis){vis=true;glow.style.opacity='1';}
+  });
+  document.addEventListener('mouseleave',function(){vis=false;glow.style.opacity='0';});
+  (function tick(){
+    gx+=(mx-gx)*0.07;
+    gy+=(my-gy)*0.07;
+    glow.style.left=gx+'px';
+    glow.style.top=gy+'px';
+    requestAnimationFrame(tick);
+  })();
+
+  /* ── Copy code button ── */
+  window.copyCode = function(btn, text) {
+    navigator.clipboard.writeText(text).then(function(){
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function(){
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 2000);
+    }).catch(function(){});
+  };
+
+  /* ── Mobile sidebar ── */
+  var hamburger = document.getElementById('hamburger');
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  var sidebarOpen = false;
+
+  function toggleSidebar(open) {
+    sidebarOpen = open;
+    sidebar.classList.toggle('open', open);
+    hamburger.classList.toggle('open', open);
+    if (overlay) {
+      overlay.style.display = open ? 'block' : 'none';
+      requestAnimationFrame(function(){
+        overlay.classList.toggle('visible', open);
+      });
+    }
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+
+  hamburger.addEventListener('click', function(){
+    toggleSidebar(!sidebarOpen);
+  });
+
+  if (overlay) {
+    overlay.addEventListener('click', function(){
+      toggleSidebar(false);
+    });
+  }
+
+  /* Close sidebar when clicking a link (mobile) */
+  sidebar.querySelectorAll('.sidebar-link').forEach(function(link){
+    link.addEventListener('click', function(){
+      if (window.innerWidth <= 860) {
+        toggleSidebar(false);
+      }
+    });
+  });
+
+  /* ── Scroll spy for sidebar ── */
+  var sidebarLinks = sidebar.querySelectorAll('.sidebar-link');
+  var sections = [];
+  sidebarLinks.forEach(function(link){
+    var id = link.getAttribute('href').replace('#','');
+    var el = document.getElementById(id);
+    if (el) sections.push({id: id, el: el, link: link});
+  });
+
+  function updateActive(){
+    var scrollY = window.scrollY + 140; // offset for nav height + padding
+    var currentId = null;
+
+    for (var i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].el.offsetTop <= scrollY) {
+        currentId = sections[i].id;
+        break;
+      }
+    }
+
+    sidebarLinks.forEach(function(link){
+      var href = link.getAttribute('href').replace('#','');
+      if (href === currentId) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
+      }
+    });
+  }
+
+  var scrollTicking = false;
+  window.addEventListener('scroll', function(){
+    if (!scrollTicking) {
+      requestAnimationFrame(function(){
+        updateActive();
+        scrollTicking = false;
+      });
+      scrollTicking = true;
+    }
+  });
+
+  /* Initial active state */
+  updateActive();
+
+  /* ── Close sidebar on window resize to desktop ── */
+  window.addEventListener('resize', function(){
+    if (window.innerWidth > 860 && sidebarOpen) {
+      toggleSidebar(false);
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>

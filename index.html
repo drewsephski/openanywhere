@@ -644,6 +644,107 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
 @keyframes fadeScale{from{opacity:0;transform:scale(0.96);}to{opacity:1;transform:none;}}
 
 /* ═══════════════════════════════════════════
+   DOCUMENTATION BRIDGE
+   ═══════════════════════════════════════════ */
+.docs-section{padding:100px 0;position:relative;z-index:1;}
+
+.docs-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:1px;
+  background:var(--border);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+}
+.docs-card{
+  background:var(--bg-1);
+  padding:32px 28px;
+  position:relative;
+  overflow:hidden;
+  transition:background 0.32s ease;
+  display:flex;flex-direction:column;
+}
+.docs-card:hover{background:var(--bg-2);}
+
+/* Top accent */
+.docs-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;
+  height:2px;background:var(--lime);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform 0.38s cubic-bezier(0.4,0,0.2,1);
+}
+.docs-card:hover::before{transform:scaleX(1);}
+
+/* Radial tint */
+.docs-card::after{
+  content:'';
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 40% 0%,rgba(185,244,41,0.05),transparent 65%);
+  opacity:0;transition:opacity 0.38s ease;
+  pointer-events:none;
+}
+.docs-card:hover::after{opacity:1;}
+
+.docs-card--large{grid-row:span 2;}
+.docs-card-icon{
+  color:var(--text-3);
+  margin-bottom:16px;
+  transition:color 0.35s ease,transform 0.35s ease;
+  position:relative;z-index:1;
+}
+.docs-card:hover .docs-card-icon{
+  color:rgba(185,244,41,0.7);
+  transform:translateY(-2px);
+}
+.docs-card-title{
+  font-family:var(--fd);
+  font-size:17px;font-weight:700;
+  letter-spacing:-0.02em;
+  color:var(--text);margin-bottom:10px;line-height:1.2;
+  position:relative;z-index:1;
+}
+.docs-card-desc{
+  font-family:var(--fb);
+  font-size:14.5px;font-weight:400;
+  color:var(--text-2);line-height:1.55;
+  position:relative;z-index:1;
+  margin-bottom:20px;
+  flex:1;
+}
+.docs-card-links{
+  display:flex;flex-wrap:wrap;gap:6px;
+  position:relative;z-index:1;
+}
+.docs-link{
+  font-family:var(--fb);
+  font-size:12.5px;font-weight:500;
+  color:var(--text-3);
+  padding:5px 14px;
+  border:1px solid var(--border);
+  border-radius:40px;
+  transition:all 0.22s ease;
+}
+.docs-link:hover{
+  color:var(--text-2);
+  border-color:rgba(255,255,255,0.11);
+  background:rgba(255,255,255,0.04);
+}
+.docs-link--primary{
+  background:var(--lime-mid);
+  border-color:rgba(185,244,41,0.28);
+  color:var(--lime);
+  font-weight:600;
+}
+.docs-link--primary:hover{
+  background:rgba(185,244,41,0.22);
+  border-color:rgba(185,244,41,0.55);
+  color:#d6ff45;
+  box-shadow:0 0 20px rgba(185,244,41,0.12);
+}
+
+/* ═══════════════════════════════════════════
    REDUCED MOTION
    ═══════════════════════════════════════════ */
 @media(prefers-reduced-motion:reduce){
@@ -662,6 +763,9 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
   .steps-section,.benefits-section{padding:72px 0;}
   .benefits-header{grid-template-columns:1fr;gap:18px;}
   .benefits-grid{grid-template-columns:1fr;}
+  .docs-section{padding:72px 0;}
+  .docs-grid{grid-template-columns:1fr;}
+  .docs-card--large{grid-row:auto;}
   footer{padding:40px 28px;}
   .step-item{grid-template-columns:64px 1fr;gap:28px;}
   .step-num{font-size:44px;}
@@ -671,7 +775,7 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
   .nav-links .nav-pill:not(.nav-pill--cta){display:none;}
   .hero{padding:76px 20px 56px;}
   .wrap{padding:0 20px;}
-  .steps-section,.benefits-section{padding:56px 0;}
+  .steps-section,.benefits-section,.docs-section{padding:56px 0;}
   .step-item{grid-template-columns:1fr;gap:10px;padding:36px 0;}
   .step-num{font-size:36px;padding-top:0;}
   footer{padding:32px 20px;flex-direction:column;align-items:flex-start;}
@@ -711,6 +815,7 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
       GitHub
     </a>
+    <a href="/docs" class="nav-pill">Docs</a>
     <a href="https://opencode.ai" class="nav-pill nav-pill--cta">Get Started</a>
   </div>
 </nav>
@@ -923,6 +1028,68 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
   </div>
 </section>
 
+<div class="rule"></div>
+
+<!-- ═══════════════════════════════════════════
+     DOCUMENTATION BRIDGE
+     ═══════════════════════════════════════════ -->
+<section class="docs-section">
+  <div class="wrap">
+    <div class="section-tag reveal">
+      <span class="section-tag-label">Learn more</span>
+    </div>
+
+    <div class="docs-grid reveal">
+      <div class="docs-card docs-card--large">
+        <div class="docs-card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </div>
+        <h3 class="docs-card-title">Full Documentation</h3>
+        <p class="docs-card-desc">Deep dive into architecture, security model, configuration, troubleshooting, and more. Everything you need to understand how OpenCode Remote works under the hood.</p>
+        <div class="docs-card-links">
+          <a href="/docs#getting-started" class="docs-link">Getting Started</a>
+          <a href="/docs#how-it-works" class="docs-link">Architecture</a>
+          <a href="/docs#security" class="docs-link">Security</a>
+          <a href="/docs" class="docs-link docs-link--primary">Read the Docs</a>
+        </div>
+      </div>
+
+      <div class="docs-card">
+        <div class="docs-card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+        </div>
+        <h3 class="docs-card-title">Quick Start</h3>
+        <p class="docs-card-desc">Run one command and you're live in under two minutes. No configuration files, no port forwarding, no DNS setup.</p>
+        <div class="docs-card-links">
+          <a href="/docs#getting-started" class="docs-link docs-link--primary">Install Guide</a>
+        </div>
+      </div>
+
+      <div class="docs-card">
+        <div class="docs-card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </div>
+        <h3 class="docs-card-title">Configuration</h3>
+        <p class="docs-card-desc">Understand the data directory, environment variables, credentials, and how to customize your setup.</p>
+        <div class="docs-card-links">
+          <a href="/docs#configuration" class="docs-link docs-link--primary">View Config</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rule"></div>
+
 <!-- ═══════════════════════════════════════════
      FOOTER
      ═══════════════════════════════════════════ -->
@@ -933,6 +1100,7 @@ h1.hero-h1   {animation:fadeUp 0.70s cubic-bezier(0.23,1,0.32,1) 0.12s both;}
     <span class="foot-note">Not affiliated with OpenCode or Tailscale.</span>
   </div>
   <div class="foot-links">
+    <a href="/docs" class="foot-link">Docs</a>
     <a href="https://opencode.ai" class="foot-link">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       OpenCode
