@@ -198,6 +198,7 @@ nav{
    ═══════════════════════════════════════════ */
 .page{
   display:flex;
+  align-items:flex-start;
   padding-top:62px;
   min-height:100vh;
   position:relative;z-index:1;
@@ -207,10 +208,12 @@ nav{
    SIDEBAR
    ═══════════════════════════════════════════ */
 .sidebar{
-  position:fixed;
-  top:62px;left:0;bottom:0;
+  position:sticky;
+  top:62px;
   width:var(--sidebar-w);
+  height:calc(100vh - 62px);
   overflow-y:auto;
+  flex-shrink:0;
   padding:36px 28px 40px 32px;
   border-right:1px solid var(--border);
   background:var(--bg);
@@ -287,9 +290,9 @@ nav{
    ═══════════════════════════════════════════ */
 .main{
   flex:1;
-  margin-left:var(--sidebar-w);
-  padding:56px 0 120px;
   min-width:0;
+  padding:56px 0 120px;
+  position:relative;z-index:1;
 }
 
 .content-wrap{
@@ -717,6 +720,11 @@ footer{
   /* Hide sidebar, show hamburger */
   .nav-hamburger{display:flex;}
   .sidebar{
+    position:fixed;
+    top:62px;left:0;
+    bottom:0;
+    width:280px;
+    height:auto;
     transform:translateX(-100%);
     transition:transform 0.38s cubic-bezier(0.4,0,0.2,1);
     z-index:90;
