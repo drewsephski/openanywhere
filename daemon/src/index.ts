@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as http from "node:http";
+import * as net from "node:net";
 import type { AddressInfo } from "node:net";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -57,6 +58,18 @@ function getTailscaleIP(): string | null {
   } catch {
     return null;
   }
+}
+
+function findFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const port = (server.address() as AddressInfo).port;
+      server.close(() => resolve(port));
+    });
+  });
 }
 
 function generatePassword(length = 16): string {
@@ -213,6 +226,29 @@ function checkmark(status: HealthStatus): string {
   }
 }
 
+async function checkOpenCodeHealth(config: Config): Promise<"ok" | "fail"> {
+  const maxRetries = 5;
+  const baseDelayMs = 1000;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const resp = await fetch(`http://127.0.0.1:${config.port}/`, {
+        headers: { Authorization: `Basic ${Buffer.from(`opencode:${config.password}`).toString("base64")}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.ok) return "ok";
+      // If we get a non-OK response (e.g. 401), server is alive but may still be initializing
+      log(`Health check attempt ${attempt + 1}: got HTTP ${resp.status}, retrying...`);
+    } catch (err: any) {
+      log(`Health check attempt ${attempt + 1}: ${err.message}, retrying...`);
+    }
+    if (attempt < maxRetries - 1) {
+      await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)));
+    }
+  }
+  return "fail";
+}
+
 async function runHealthCheck(
   config: Config,
   proxyPort: number,
@@ -226,16 +262,8 @@ async function runHealthCheck(
     url: `http://${tsIP}:${proxyPort}/?t=${token}`,
   };
 
-  // Check OpenCode
-  try {
-    const resp = await fetch(`http://127.0.0.1:${config.port}/`, {
-      headers: { Authorization: `Basic ${Buffer.from(`opencode:${config.password}`).toString("base64")}` },
-      signal: AbortSignal.timeout(5000),
-    });
-    results.opencode = resp.ok ? "ok" : "fail";
-  } catch {
-    results.opencode = "fail";
-  }
+  // Check OpenCode with retries (server may need time to initialize)
+  results.opencode = await checkOpenCodeHealth(config);
 
   // Check Tailscale
   results.tailscale = tsIP && tsIP !== "localhost" ? "ok" : "warn";
@@ -344,17 +372,10 @@ async function printQR(url: string): Promise<void> {
 
 // ─── OpenCode Process Management ────────────────────────────────────────────
 
-/** Parse the actual port from OpenCode's "listening on" line */
-function parseListenPort(line: string): number | null {
-  const match = line.match(/listening on http:\/\/[^:]+:(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-/** Start OpenCode and wait until we know the actual port it bound to */
+/** Start OpenCode and wait until it's listening on the known port */
 async function startAndWait(config: Config): Promise<{
   process: ReturnType<typeof spawn>;
   url: string;
-  actualPort: number;
 }> {
   return new Promise((resolve, reject) => {
     const env = {
@@ -368,45 +389,27 @@ async function startAndWait(config: Config): Promise<{
       { env, stdio: ["ignore", "pipe", "pipe"] }
     );
 
-    let actualPort = config.port;
     let resolved = false;
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        if (actualPort === 0) {
-          reject(new Error("OpenCode did not report its listening port within 30s"));
-        } else {
-          // We got the port but resolve didn't fire — force it
-          const tsIP = getTailscaleIP() || "localhost";
-          resolve({ process: child, url: `http://opencode:${config.password}@${tsIP}:${actualPort}/`, actualPort });
-        }
+        const tsIP = getTailscaleIP() || "localhost";
+        resolve({ process: child, url: `http://opencode:${config.password}@${tsIP}:${config.port}/` });
       }
     }, 30000);
 
-    let stdoutBuf = "";
-
     child.stdout?.on("data", (data: Buffer) => {
       const text = data.toString();
-      stdoutBuf += text;
-
       for (const line of text.trim().split("\n")) {
         if (line) log(`[opencode] ${line}`);
       }
 
-      // Try to parse the listen port
-      if (!resolved) {
-        const port = parseListenPort(stdoutBuf);
-        if (port !== null && port > 0) {
-          actualPort = port;
-          resolved = true;
-          clearTimeout(timeout);
-          const tsIP = getTailscaleIP() || "localhost";
-          resolve({
-            process: child,
-            url: `http://opencode:${config.password}@${tsIP}:${actualPort}/`,
-            actualPort,
-          });
-        }
+      // Resolve as soon as we see "listening on" — server is ready
+      if (!resolved && text.includes("listening on")) {
+        resolved = true;
+        clearTimeout(timeout);
+        const tsIP = getTailscaleIP() || "localhost";
+        resolve({ process: child, url: `http://opencode:${config.password}@${tsIP}:${config.port}/` });
       }
     });
 
@@ -1243,7 +1246,7 @@ async function doStart(): Promise<void> {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 
   const password = loadPassword();
-  const port = parseInt(process.env.OC_PORT || "0", 10) || 0;
+  const port = parseInt(process.env.OC_PORT || "0", 10) || await findFreePort();
   const hostname = process.env.OC_HOSTNAME || "0.0.0.0";
 
   const config: Config = { port, password, hostname };
@@ -1260,22 +1263,19 @@ async function doStart(): Promise<void> {
   }
 
   // Start OpenCode — wait for the actual port to be known
-  const { process: child, url, actualPort } = await startAndWait(config);
+  const { process: child, url } = await startAndWait(config);
   savePID(child.pid || 0);
 
-  // Update config with actual port
-  const resolvedConfig: Config = { ...config, port: actualPort };
-
   // Start auth proxy (needs to be running before we display QR)
-  startProxy(resolvedConfig, child);
+  startProxy(config, child);
 
-  // Wait briefly for proxy to start
-  await new Promise((r) => setTimeout(r, 1000));
+  // Wait for proxy to start and OpenCode to fully initialize
+  await new Promise((r) => setTimeout(r, 2000));
 
   // Run health self-check before displaying banner
   const tsIP = getTailscaleIP() || "localhost";
   const token = loadToken();
-  const health = await runHealthCheck(resolvedConfig, proxyPort!, tsIP, token);
+  const health = await runHealthCheck(config, proxyPort!, tsIP, token);
 
   // Display info
   printBanner(health, password);
@@ -1302,9 +1302,9 @@ async function doStart(): Promise<void> {
     const delay = Math.min(crashTimestamps.length * 3000, 15000);
     log(`OpenCode crashed (code=${code}). Restarting in ${delay / 1000}s (attempt ${crashTimestamps.length})...`);
     await new Promise((r) => setTimeout(r, delay));
-    const { process: newChild, url: newUrl, actualPort: newPort } = await startAndWait(config);
+    const { process: newChild, url: newUrl } = await startAndWait(config);
     savePID(newChild.pid || 0);
-    log(`Restarted OpenCode on port ${newPort}.`);
+    log(`Restarted OpenCode on port ${config.port}.`);
   });
 
   // Network monitoring: detect Tailscale IP changes
